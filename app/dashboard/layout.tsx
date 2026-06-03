@@ -80,6 +80,10 @@ export default function DashboardLayout({
             {/* Nav Links */}
             <div className="hidden md:flex items-center space-x-1">
               {navItems.map((item) => {
+                // Only show non-Home items if user is admin
+                if (item.name !== 'Home' && user?.role !== 'admin') {
+                  return null;
+                }
                 const isActive = pathname === item.href;
                 return (
                   <Link
@@ -141,6 +145,10 @@ export default function DashboardLayout({
         <div className="md:hidden border-t border-gray-100">
           <div className="flex justify-around py-2">
             {navItems.map((item) => {
+              // Only show non-Home items if user is admin
+              if (item.name !== 'Home' && user?.role !== 'admin') {
+                return null;
+              }
               const isActive = pathname === item.href;
               return (
                 <Link

@@ -189,13 +189,30 @@ export default function VendorCodePage() {
   return (
 
 <div >
+   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Vendor Code</h1>
+            <p className="mt-2 text-gray-500 max-w-xl">
+              Manage application users, roles, and access from one place.
+            </p>
+          </div>
+          <button
+           onClick={openDrawer}
+            className="btn-primary flex items-center justify-center px-5 py-3"
+          >
+            Add Vendor
+          </button>
+        </div>
+        <div className='h-5'></div>
    <div className="card p-4">
+    
    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
 
   {/* Title */}
-  <h1 className="text-2xl font-bold text-blue-600 pl-3">
-    Vendor Master
-  </h1>
+   <div>
+              <h2 className="text-lg font-semibold text-gray-900">Vendor Codes</h2>
+              <p className="mt-1 text-sm text-gray-500">Quickly view and manage vendor codes in the system.</p>
+            </div>
 
   {/* Search + Add Button */}
   <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
@@ -214,7 +231,7 @@ export default function VendorCodePage() {
       />
     </div>
 
-    <button
+    {/* <button
       id="vendor-open-btn"
       type="button"
       onClick={openDrawer}
@@ -222,11 +239,12 @@ export default function VendorCodePage() {
     >
       <Plus className="w-4 h-4" />
       Vendor
-    </button>
+    </button> */}
 
   </div>
 
 </div>
+<div className='h-5' ></div>
     {/* <div className='h-5' ></div> */}
 
     <div className="md:hidden space-y-4">
@@ -315,7 +333,7 @@ export default function VendorCodePage() {
 
 <div className="hidden md:block card overflow-x-auto border border-gray-200 shadow-sm">
   <table className="min-w-full">
-    <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
+    <thead className="bg-gradient-to-r bg-gray-50 to-indigo-50">
   <tr>
     <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-gray-600">
       Vendor
@@ -370,27 +388,29 @@ export default function VendorCodePage() {
           >
             <td className="px-6 py-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold">
+                {/* <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold">
                   {vendor.name?.charAt(0)?.toUpperCase()}
-                </div>
+                </div> */}
 
                 <div>
-                  <p className="font-medium text-gray-900">
-                    {vendor.name}
-                  </p>
+               <p className="font-medium  text-sm text-gray-900">
+  {vendor.name
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase())}
+</p>
                 </div>
               </div>
             </td>
 
-            <td className="px-6 py-4 text-gray-700">
+            <td className="px-6 py-4 text-sm  text-gray-700">
               {vendor.mobile}
             </td>
 
-            <td className="px-6 py-4 text-gray-700">
+            <td className="px-6 py-4 text-sm  text-gray-700">
               {vendor.mailId}
             </td>
 
-          <td className="px-6 py-4">
+          <td className="px-6 py-4 text-sm ">
   <div className="group relative max-w-[220px]">
     <p className="truncate text-gray-700">
       {vendor.address}
@@ -402,7 +422,7 @@ export default function VendorCodePage() {
   </div>
 </td>
 
-         <td className="px-6 py-4">
+         <td className="px-6 py-4 text-sm ">
   <div className="group relative max-w-[220px]">
     <p className="truncate text-gray-700">
       {vendor.billingAddress}
@@ -414,22 +434,22 @@ export default function VendorCodePage() {
   </div>
 </td>
 
-     <td className="w-32 px-6 py-4">
+     <td className="w-32 px-6 py-4 txt-sm ">
   <div className="flex items-center justify-center gap-2">
     <button
       type="button"
       onClick={() => handleEdit(vendor)}
-      className="w-9 h-9 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"
+      className="rounded-full bg-green-500 px-3 py-1 text-xs font-semibold text-white hover:bg-green-600"
     >
-      <Pencil className="w-4 h-4" />
+      Edit
     </button>
 
     <button
       type="button"
       onClick={() => handleDelete(vendor.id)}
-      className="w-9 h-9 flex items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+      className="rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-600"
     >
-      <Trash2 className="w-4 h-4" />
+     Delete
     </button>
   </div>
 </td>

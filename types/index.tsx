@@ -15,6 +15,14 @@ export interface User {
     description?: string;
     amount?: number;
   }
+
+  export interface Operation {
+    id: string;
+    type: 'ETA/ETD' | 'Billing' | 'Payment' | 'Cargo';
+    status: string[];
+    createdAt: Date;
+    updatedAt: Date;
+  }
   
   export interface AuthUser {
     username: string;

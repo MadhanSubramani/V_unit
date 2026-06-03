@@ -28,23 +28,25 @@ export default function SearchFilter({
     <div className="card p-4">
       <div className="flex flex-col lg:flex-row gap-4">
         {/* Search Input */}
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search packages by name, vendor code..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="input-field pl-10"
-          />
-        </div>
+       <div className="flex-1 relative">
+  {/* <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" /> */}
+
+  <input
+  
+    type="text"
+    placeholder="Search packages by name, vendor code..."
+    value={searchTerm}
+    onChange={(e) => onSearchChange(e.target.value)}
+    className="input-field pl-12 left-10"
+  />
+</div>
 
         {/* Date Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative">
             <label className="block text-xs font-medium text-gray-500 mb-1">From Date</label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+       { /*    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /> */}
               <input
                 type="date"
                 value={fromDate}
@@ -57,7 +59,7 @@ export default function SearchFilter({
           <div className="relative">
             <label className="block text-xs font-medium text-gray-500 mb-1">To Date</label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              
               <input
                 type="date"
                 value={toDate}

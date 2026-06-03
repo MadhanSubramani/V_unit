@@ -24,6 +24,17 @@ export interface User {
     updatedAt: Date;
   }
   
+  export interface Vendor {
+    id: string;
+    name: string;
+    mobile: string;
+    mailId: string;
+    address: string;
+    billingAddress: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+  
   export interface AuthUser {
     username: string;
     role: string;

@@ -292,7 +292,7 @@ export default function VendorCodePage() {
 
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase">
-              Address
+            Delivery  Address
             </p>
             <p className="text-sm text-gray-800">
               {vendor.address}
@@ -348,7 +348,7 @@ export default function VendorCodePage() {
     </th>
 
     <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-gray-600">
-      Address
+     Delivery Address
     </th>
 
     <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-gray-600">

@@ -14,9 +14,10 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Operation } from '@/types';
+import { Pencil, Trash2 } from 'lucide-react';
 
 export default function OperationsPage() {
-  const [operationType, setOperationType] = useState<'ETA/ETD' | 'Billing' | 'Payment' | 'Cargo'>('ETA/ETD');
+  const [operationType, setOperationType] = useState<'ETA/ETD' | 'Billing' | 'Payment' | 'Cargo Segregation' |'Clearance' | 'Dispatch Status'>('ETA/ETD');
   const [statusInput, setStatusInput] = useState('');
   const [statuses, setStatuses] = useState<string[]>([]);
   const [operations, setOperations] = useState<Operation[]>([]);
@@ -26,7 +27,7 @@ export default function OperationsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const allOperationTypes: Operation['type'][] = ['ETA/ETD', 'Billing', 'Payment', 'Cargo'];
+  const allOperationTypes: Operation['type'][] = ['ETA/ETD', 'Billing', 'Payment', 'Cargo Segregation', 'Clearance', 'Dispatch Status'  ];
   const availableCreateTypes = allOperationTypes.filter(
     (type) => !operations.some((operation) => operation.type === type)
   );
@@ -261,6 +262,7 @@ export default function OperationsPage() {
                   </tbody>
                 </table>
               </div>
+              
             )}
           </div>
         </div>

@@ -7,31 +7,39 @@ import {
   query,
   orderBy,
   getDocs,
-  where,
-  Timestamp,
+  deleteDoc,
+  doc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Package } from '@/types';
+import { normalizePackageFromFirestore } from '@/lib/firestore-dates';
+import { useAuth } from '@/context/AuthContext';
 import StatsCard from '@/components/StatsCard';
 import SearchFilter from '@/components/SearchFilter';
 import PackageList from '@/components/PackageCard';
 import AddPackageModal from '@/components/AddPackageModal';
-import { Clock, CheckCircle, XCircle, Plus } from 'lucide-react';
+import PackageTimelineDrawer from '@/components/PackageTimelineDrawer';
+import { Clock, CheckCircle, XCircle, ShieldCheck, Plus } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
 
 export default function DashboardHome() {
+  const { user } = useAuth();
   const [packages, setPackages] = useState<Package[]>([]);
   const [filteredPackages, setFilteredPackages] = useState<Package[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<Package | null>(null);
+  const [showTimelineDrawer, setShowTimelineDrawer] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
 
   // Stats
   const [stats, setStats] = useState({
     inProcess: 0,
-    complete: 0,
-    canceled: 0,
+    paymentCompleted: 0,
+    operationCompleted: 0,
+    operationCancelled: 0,
   });
 
   // Filters
@@ -48,30 +56,25 @@ export default function DashboardHome() {
 
       const fetchedPackages: Package[] = [];
       let inProcess = 0;
-      let complete = 0;
-      let canceled = 0;
+      let paymentCompleted = 0;
+      let operationCompleted = 0;
+      let operationCancelled = 0;
 
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        const pkg: Package = {
-          id: doc.id,
-          name: data.name,
-          status: data.status,
-          vendorCode: data.vendorCode,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-          description: data.description,
-          amount: data.amount,
-        };
+      querySnapshot.forEach((docSnap) => {
+        const pkg = normalizePackageFromFirestore(
+          docSnap.id,
+          docSnap.data() as Record<string, unknown>
+        );
         fetchedPackages.push(pkg);
 
         if (pkg.status === 'in_process') inProcess++;
-        else if (pkg.status === 'complete') complete++;
-        else if (pkg.status === 'canceled') canceled++;
+        else if (pkg.status === 'payment_completed') paymentCompleted++;
+        else if (pkg.status === 'operation_completed') operationCompleted++;
+        else if (pkg.status === 'operation_cancelled') operationCancelled++;
       });
 
       setPackages(fetchedPackages);
-      setStats({ inProcess, complete, canceled });
+      setStats({ inProcess, paymentCompleted, operationCompleted, operationCancelled });
     } catch (error) {
       console.error('Error fetching packages:', error);
     } finally {
@@ -93,8 +96,13 @@ export default function DashboardHome() {
       filtered = filtered.filter(
         (pkg) =>
           pkg.name.toLowerCase().includes(search) ||
-          pkg.vendorCode.toLowerCase().includes(search) ||
-          pkg.description?.toLowerCase().includes(search)
+          (pkg.vendorName || pkg.vendorCode || '')
+            .toLowerCase()
+            .includes(search) ||
+          pkg.description?.toLowerCase().includes(search) ||
+          pkg.packageType?.toLowerCase().includes(search) ||
+          pkg.createdBy?.toLowerCase().includes(search) ||
+          pkg.updatedBy?.toLowerCase().includes(search)
       );
     }
 
@@ -115,7 +123,24 @@ export default function DashboardHome() {
     setCurrentPage(1);
   }, [packages, searchTerm, fromDate, toDate]);
 
-  // Pagination
+  const handleEditPackage = (pkg: Package) => {
+    setEditingPackage(pkg);
+    setShowAddModal(true);
+  };
+
+  const handleDeletePackage = async (packageId: string) => {
+    if (!confirm('Are you sure you want to delete this package?')) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'packages', packageId));
+      await fetchPackages();
+    } catch (error) {
+      console.error('Error deleting package:', error);
+    }
+  };
+
   const totalPages = Math.ceil(filteredPackages.length / ITEMS_PER_PAGE);
   const paginatedPackages = filteredPackages.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -137,7 +162,10 @@ export default function DashboardHome() {
           <p className="text-gray-500 mt-1">Manage your packages and track status</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {
+            setEditingPackage(null);
+            setShowAddModal(true);
+          }}
           className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
         >
           <Plus className="w-5 h-5" />
@@ -146,7 +174,7 @@ export default function DashboardHome() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatsCard
           title="In Process"
           count={stats.inProcess}
@@ -155,15 +183,22 @@ export default function DashboardHome() {
           isLoading={isLoading}
         />
         <StatsCard
-          title="Complete"
-          count={stats.complete}
+          title="Payment Completed"
+          count={stats.paymentCompleted}
+          icon={ShieldCheck}
+          color="blue"
+          isLoading={isLoading}
+        />
+        <StatsCard
+          title="Operation Completed"
+          count={stats.operationCompleted}
           icon={CheckCircle}
           color="green"
           isLoading={isLoading}
         />
         <StatsCard
-          title="Canceled"
-          count={stats.canceled}
+          title="Operation Cancelled"
+          count={stats.operationCancelled}
           icon={XCircle}
           color="red"
           isLoading={isLoading}
@@ -195,6 +230,13 @@ export default function DashboardHome() {
         totalPages={totalPages}
         onPageChange={setCurrentPage}
         isLoading={isLoading}
+        onEdit={handleEditPackage}
+        onDelete={handleDeletePackage}
+        canDelete={user?.role === 'admin'}
+        onTrack={(pkg) => {
+          setSelectedPackage(pkg);
+          setShowTimelineDrawer(true);
+        }}
       />
 
       {/* Add Package Modal */}
@@ -202,6 +244,20 @@ export default function DashboardHome() {
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSuccess={fetchPackages}
+        editingPackage={editingPackage}
+        currentUser={user}
+      />
+
+      {/* Package Timeline Drawer */}
+      <PackageTimelineDrawer
+        isOpen={showTimelineDrawer}
+        onClose={() => {
+          setShowTimelineDrawer(false);
+          setSelectedPackage(null);
+        }}
+        package={selectedPackage}
+        currentUser={user}
+        onRefresh={fetchPackages}
       />
     </div>
   );

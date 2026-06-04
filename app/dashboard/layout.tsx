@@ -72,7 +72,7 @@ export default function DashboardLayout({
                   <Package className="w-5 h-5 text-white" />
                 </div>
                 <span className="font-bold text-lg text-gray-900 hidden sm:block">
-                  Dashboard
+                  Vunit
                 </span>
               </div>
             </div>

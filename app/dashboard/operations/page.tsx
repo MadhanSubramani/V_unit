@@ -16,7 +16,7 @@ import { db } from '@/lib/firebase';
 import { Operation } from '@/types';
 
 export default function OperationsPage() {
-  const [operationType, setOperationType] = useState<'Billing' | 'Payment' | 'Cargo Segregation' | 'Clearance' | 'Dispatch Status'>('Billing');
+  const [operationType, setOperationType] = useState<'Billing' | 'Payment' | 'Cargo Segregation' | 'Clearance' | 'Dispatch Status' | 'Package'>('Billing');
   const [statusInput, setStatusInput] = useState('');
   const [statuses, setStatuses] = useState<string[]>([]);
   const [operations, setOperations] = useState<Operation[]>([]);
@@ -26,7 +26,7 @@ export default function OperationsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const allOperationTypes: Operation['type'][] = ['Billing', 'Payment', 'Cargo Segregation', 'Clearance', 'Dispatch Status'];
+  const allOperationTypes: Operation['type'][] = ['Billing', 'Payment', 'Cargo Segregation', 'Clearance', 'Dispatch Status', 'Package'];
   const availableCreateTypes = allOperationTypes.filter(
     (type) => !operations.some((operation) => operation.type === type)
   );
@@ -177,7 +177,7 @@ export default function OperationsPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Operations</h1>
             <p className="mt-2 text-gray-500 max-w-xl">
-              Manage operation entries with Billing, Payment, Cargo Segregation, Clearance, and Dispatch Status types.
+              Manage operation entries with Billing, Payment, Cargo Segregation, Clearance, Dispatch Status, and Package types.
             </p>
           </div>
           <button

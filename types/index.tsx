@@ -115,7 +115,7 @@ export interface User {
 
   export interface Operation {
     id: string;
-    type: 'Billing' | 'Payment' | 'Cargo Segregation' | 'Clearance' | 'Dispatch Status';
+    type: 'Billing' | 'Payment' | 'Cargo Segregation' | 'Clearance' | 'Dispatch Status' | 'Package';
     status: string[];
     createdAt: Date;
     updatedAt: Date;

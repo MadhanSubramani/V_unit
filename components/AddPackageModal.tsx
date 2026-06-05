@@ -12,6 +12,7 @@ import {
   query,
   orderBy,
   Timestamp,
+  arrayUnion,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { X, Loader2 } from 'lucide-react';
@@ -25,13 +26,6 @@ interface AddPackageModalProps {
   editingPackage?: Package | null;
   currentUser: AuthUser | null;
 }
-
-const packageTypeOptions = [
-  { value: 'Cartons', label: 'Cartons' },
-  { value: 'Pallets', label: 'Pallets' },
-  { value: 'Rolls', label: 'Rolls' },
-  { value: 'Drums', label: 'Drums' },
-];
 
 export default function AddPackageModal({
   isOpen,
@@ -51,6 +45,8 @@ export default function AddPackageModal({
   const [weight, setWeight] = useState('');
   const [cbm, setCbm] = useState('');
   const [packageType, setPackageType] = useState('');
+  const [packageTypeSuggestions, setPackageTypeSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [packageCount, setPackageCount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -75,6 +71,7 @@ export default function AddPackageModal({
     setCbm('');
     setPackageType('');
     setPackageCount('');
+    setShowSuggestions(false);
     setError('');
   };
 
@@ -106,8 +103,24 @@ export default function AddPackageModal({
     }
   };
 
+  const fetchPackageTypes = async () => {
+    try {
+      const opsRef = collection(db, 'operations');
+      const snapshot = await getDocs(opsRef);
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.type === 'Package') {
+          setPackageTypeSuggestions(Array.isArray(data.status) ? data.status : []);
+        }
+      });
+    } catch (err) {
+      console.error('Error fetching package types:', err);
+    }
+  };
+
   useEffect(() => {
     fetchVendors();
+    fetchPackageTypes();
   }, []);
 
   useEffect(() => {
@@ -185,6 +198,43 @@ export default function AddPackageModal({
           createdAt: Timestamp.now(),
           createdBy: currentUser?.username || 'Unknown',
         });
+      }
+
+      // Check if there is a new package type to add to operations
+      const trimmedPackageType = packageType.trim();
+      if (trimmedPackageType && !packageTypeSuggestions.includes(trimmedPackageType)) {
+        try {
+          const opsRef = collection(db, 'operations');
+          const snapshot = await getDocs(opsRef);
+          let packageOpDocId: string | null = null;
+          let currentStatuses: string[] = [];
+          
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (data.type === 'Package') {
+              packageOpDocId = docSnap.id;
+              currentStatuses = Array.isArray(data.status) ? data.status : [];
+            }
+          });
+
+          if (packageOpDocId) {
+            if (!currentStatuses.includes(trimmedPackageType)) {
+              await updateDoc(doc(db, 'operations', packageOpDocId), {
+                status: arrayUnion(trimmedPackageType),
+                updatedAt: Timestamp.now(),
+              });
+            }
+          } else {
+            await addDoc(collection(db, 'operations'), {
+              type: 'Package',
+              status: [trimmedPackageType],
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now(),
+            });
+          }
+        } catch (err) {
+          console.error('Error saving new package type to operations:', err);
+        }
       }
 
       resetForm();
@@ -281,22 +331,49 @@ export default function AddPackageModal({
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Type of Packages
               </label>
-              <select
+              <input
+                type="text"
                 value={packageType}
-                onChange={(e) => setPackageType(e.target.value)}
+                onChange={(e) => {
+                  setPackageType(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => {
+                  setTimeout(() => setShowSuggestions(false), 200);
+                }}
                 className="input-field"
-              >
-                <option value="">Select package type</option>
-                {packageTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                placeholder="Type or select package type"
+              />
+              {showSuggestions && (
+                (() => {
+                  const filtered = packageTypeSuggestions.filter((suggestion) =>
+                    suggestion.toLowerCase().includes(packageType.toLowerCase())
+                  );
+                  if (filtered.length === 0) return null;
+                  return (
+                    <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto mt-1">
+                      {filtered.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => {
+                            setPackageType(suggestion);
+                            setShowSuggestions(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm text-gray-700 transition-colors border-b border-gray-50 last:border-b-0"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()
+              )}
             </div>
 
             <div>

@@ -523,6 +523,7 @@ export default function PackageTimelineDrawer({
                         completed: true,
                         savedAt: Timestamp.now(),
                         savedBy: currentUser?.username,
+                        truckNo: data.truckNo || '',
                       };
                       if (data.dispatchDate) dispatchUpdate.dispatchDate = dateToTimestamp(data.dispatchDate);
                       
@@ -1576,6 +1577,7 @@ function StageDispatch({
     status: dispatchData.status || statusOptions[0] || '',
     driverName: dispatchData.driverName || '',
     driverPhone: dispatchData.driverPhone || '',
+    truckNo: dispatchData.truckNo || '',
     dispatchDate: formatDateForInput(dispatchData.dispatchDate),
     note: dispatchData.note || '',
   });
@@ -1586,6 +1588,7 @@ function StageDispatch({
       status: d.status || statusOptions[0] || '',
       driverName: d.driverName || '',
       driverPhone: d.driverPhone || '',
+      truckNo: d.truckNo || '',
       dispatchDate: formatDateForInput(d.dispatchDate),
       note: d.note || '',
     });
@@ -1597,6 +1600,7 @@ function StageDispatch({
       driverName: formData.driverName,
       driverPhone: formData.driverPhone,
       note: formData.note,
+      truckNo: formData.truckNo,
       dispatchDate: formData.dispatchDate
         ? new Date(formData.dispatchDate)
         : undefined,
@@ -1681,6 +1685,22 @@ function StageDispatch({
                 required
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Truck No *
+              </label>
+              <input
+                type="text"
+                value={formData.truckNo}
+                onChange={(e) =>
+                  setFormData({ ...formData, truckNo: e.target.value })
+                }
+                className="input-field"
+                placeholder="Enter truck number"
+                required
+              />
+            </div>
           </>
         )}
 
@@ -1699,7 +1719,7 @@ function StageDispatch({
 
         <button
           onClick={handleSave}
-          disabled={isLoading || (isDispatched && (!formData.driverName || !formData.driverPhone))}
+          disabled={isLoading || (isDispatched && (!formData.driverName || !formData.driverPhone || !formData.truckNo))}
           className="w-full btn-primary py-2.5 flex items-center justify-center gap-2"
         >
           {isLoading ? (

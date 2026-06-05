@@ -42,6 +42,7 @@ export interface DispatchData extends TimelineStage {
   status?: string;
   driverName?: string;
   driverPhone?: string;
+  truckNo?: string;
   dispatchDate?: Date;
   note?: string;
 }

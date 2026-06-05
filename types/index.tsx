@@ -14,6 +14,20 @@ export interface ETDETAData extends TimelineStage {
   note?: string;
 }
 
+export interface ETDData extends TimelineStage {
+  estimatedDeparture?: Date;
+  shippedOnboardDate?: Date;
+  sailedDate?: Date;
+  note?: string;
+}
+
+export interface ETAData extends TimelineStage {
+  approxArrivalDate?: Date;
+  arrivalDate?: Date;
+  status?: string;
+  note?: string;
+}
+
 export interface ClearanceData extends TimelineStage {
   status?: string;
   clearanceDate?: Date;
@@ -49,6 +63,8 @@ export interface DispatchData extends TimelineStage {
 
 export interface PackageTimeline {
   packageCreated?: TimelineStage;
+  etd?: ETDData;
+  eta?: ETAData;
   etdEta?: ETDETAData;
   clearance?: ClearanceData;
   cargoSegregation?: CargoSegregationData;

@@ -3,6 +3,8 @@ import {
   Package,
   PackageTimeline,
   TimelineStage,
+  ETDData,
+  ETAData,
   ETDETAData,
   ClearanceData,
   CargoSegregationData,
@@ -75,6 +77,21 @@ export function normalizeTimeline(
     packageCreated: normalizeStage(
       raw.packageCreated as TimelineStage,
       []
+    ),
+    etd: normalizeStage(
+      raw.etd as ETDData,
+      [
+        'estimatedDeparture',
+        'shippedOnboardDate',
+        'sailedDate',
+      ]
+    ),
+    eta: normalizeStage(
+      raw.eta as ETAData,
+      [
+        'approxArrivalDate',
+        'arrivalDate',
+      ]
     ),
     etdEta: normalizeStage(
       raw.etdEta as ETDETAData,

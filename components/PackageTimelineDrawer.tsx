@@ -16,7 +16,7 @@ import {
   formatDateForInput,
   normalizePackageFromFirestore,
 } from '@/lib/firestore-dates';
-import { Package, Operation, AuthUser } from '@/types';
+import { Package, Operation, AuthUser, ETDData, ETAData } from '@/types';
 import {
   X,
   CheckCircle,
@@ -39,7 +39,8 @@ interface PackageTimelineDrawerProps {
 
 const STAGES = [
   { id: 'packageCreated', label: 'Package Created' },
-  { id: 'etdEta', label: 'ETD/ETA' },
+  { id: 'etd', label: 'ETD' },
+  { id: 'eta', label: 'ETA' },
   { id: 'clearance', label: 'Clearance' },
   { id: 'cargoSegregation', label: 'Cargo Segregation' },
   { id: 'billing', label: 'Billing' },
@@ -72,20 +73,25 @@ export default function PackageTimelineDrawer({
   const [cancelReason, setCancelReason] = useState('');
   const [localPackage, setLocalPackage] = useState<Package | null>(pkg);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  const previousIsOpenRef = useRef(false);
 
   const timeline = localPackage?.timeline || {};
-  const isStageCompleted = (stageIndex: number): boolean => {
+
+  const isStageCompletedWithTimeline = (timelineObj: any, stageIndex: number): boolean => {
     const stage = STAGES[stageIndex];
-    if (stageIndex === 0) return timeline.packageCreated?.completed || false;
-    if (stage.id === 'etdEta') return timeline.etdEta?.completed || false;
-    if (stage.id === 'clearance') return timeline.clearance?.completed || false;
+    if (stageIndex === 0) return timelineObj.packageCreated?.completed || false;
+    if (stage.id === 'etd') return timelineObj.etd?.completed || timelineObj.etdEta?.completed || false;
+    if (stage.id === 'eta') return timelineObj.eta?.completed || timelineObj.etdEta?.completed || false;
+    if (stage.id === 'clearance') return timelineObj.clearance?.completed || false;
     if (stage.id === 'cargoSegregation')
-      return timeline.cargoSegregation?.completed || false;
-    if (stage.id === 'billing') return timeline.billing?.completed || false;
-    if (stage.id === 'payment') return timeline.payment?.completed || false;
-    if (stage.id === 'dispatch') return timeline.dispatch?.completed || false;
+      return timelineObj.cargoSegregation?.completed || false;
+    if (stage.id === 'billing') return timelineObj.billing?.completed || false;
+    if (stage.id === 'payment') return timelineObj.payment?.completed || false;
+    if (stage.id === 'dispatch') return timelineObj.dispatch?.completed || false;
     return false;
+  };
+
+  const isStageCompleted = (stageIndex: number): boolean => {
+    return isStageCompletedWithTimeline(timeline, stageIndex);
   };
 
   const isStageUnlocked = (stageIndex: number): boolean => {
@@ -109,11 +115,6 @@ export default function PackageTimelineDrawer({
     }
   };
 
-  useEffect(() => {
-    setLocalPackage(pkg);
-    setInitialLoadComplete(false);
-  }, [pkg]);
-
   const fetchUpdatedPackage = async (): Promise<Package | null> => {
     if (!pkg?.id) return null;
     try {
@@ -134,42 +135,42 @@ export default function PackageTimelineDrawer({
   };
 
   useEffect(() => {
-    if (isOpen && !previousIsOpenRef.current) {
-      previousIsOpenRef.current = true;
+    if (isOpen) {
       setInitialLoadComplete(false);
 
       const initializeDrawer = async () => {
         // Fetch latest package data from Firebase
         const updatedPkg = await fetchUpdatedPackage();
-        const pkgToUse = updatedPkg || localPackage;
+        const pkgToUse = updatedPkg || pkg;
+        setLocalPackage(pkgToUse);
 
         // Fetch operations
         await fetchOperations();
 
         // Calculate and set active stage based on updated data
         if (pkgToUse?.timeline) {
-          const timeline = pkgToUse.timeline || {};
+          const timelineToUse = pkgToUse.timeline || {};
 
           // Check which stage is the first uncompleted but unlocked one
           for (let i = 0; i < STAGES.length; i++) {
-            const stageId = STAGES[i].id as keyof typeof timeline;
-            const isCompleted = timeline[stageId]?.completed || false;
-
-            if (!isCompleted) {
+            if (!isStageCompletedWithTimeline(timelineToUse, i)) {
               setActiveStage(i);
               break;
             }
           }
+        } else {
+          setActiveStage(0);
         }
 
         setInitialLoadComplete(true);
       };
 
       initializeDrawer();
-    } else if (!isOpen) {
-      previousIsOpenRef.current = false;
+    } else {
+      setLocalPackage(null);
+      setInitialLoadComplete(false);
     }
-  }, [isOpen]);
+  }, [isOpen, pkg?.id]);
 
   const fetchOperations = async () => {
     try {
@@ -320,8 +321,45 @@ export default function PackageTimelineDrawer({
                   isLoading={loading}
                 />
               ) : activeStage === 1 ? (
-                <StageETDETA
+                <StageETD
                   key={`etd-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
+                  timeline={timeline}
+                  currentUser={currentUser}
+                  onSave={async (data) => {
+                    try {
+                      setLoading(true);
+                      const etdUpdate: any = {
+                        note: data.note || '',
+                        completed: true,
+                        savedAt: Timestamp.now(),
+                        savedBy: currentUser?.username,
+                      };
+                      if (data.estimatedDeparture) etdUpdate.estimatedDeparture = dateToTimestamp(data.estimatedDeparture);
+                      if (data.shippedOnboardDate) etdUpdate.shippedOnboardDate = dateToTimestamp(data.shippedOnboardDate);
+                      if (data.sailedDate) etdUpdate.sailedDate = dateToTimestamp(data.sailedDate);
+                      
+                      await updateDoc(doc(db, 'packages', localPackage.id), {
+                        'timeline.etd': etdUpdate,
+                        updatedAt: Timestamp.now(),
+                        updatedBy: currentUser?.username,
+                      });
+                      setSuccessMessage('ETD saved successfully');
+                      setTimeout(() => setSuccessMessage(''), 3000);
+                      onRefresh();
+                      await fetchUpdatedPackage();
+                      moveToNextStage();
+                    } catch (err) {
+                      console.error('Error saving ETD:', err);
+                      setErrorMessage('Failed to save ETD');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  isLoading={loading}
+                />
+              ) : activeStage === 2 ? (
+                <StageETA
+                  key={`eta-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
                   timeline={timeline}
                   currentUser={currentUser}
                   onSave={async (data) => {
@@ -333,31 +371,30 @@ export default function PackageTimelineDrawer({
                         savedAt: Timestamp.now(),
                         savedBy: currentUser?.username,
                       };
-                      if (data.estimatedDeparture) etaUpdate.estimatedDeparture = dateToTimestamp(data.estimatedDeparture);
-                      if (data.shippedOnboardDate) etaUpdate.shippedOnboardDate = dateToTimestamp(data.shippedOnboardDate);
-                      if (data.sailedDate) etaUpdate.sailedDate = dateToTimestamp(data.sailedDate);
-                      if (data.expectedArrival) etaUpdate.expectedArrival = dateToTimestamp(data.expectedArrival);
+                      if (data.approxArrivalDate) etaUpdate.approxArrivalDate = dateToTimestamp(data.approxArrivalDate);
+                      if (data.arrivalDate) etaUpdate.arrivalDate = dateToTimestamp(data.arrivalDate);
+                      if (data.status) etaUpdate.status = data.status;
                       
                       await updateDoc(doc(db, 'packages', localPackage.id), {
-                        'timeline.etdEta': etaUpdate,
+                        'timeline.eta': etaUpdate,
                         updatedAt: Timestamp.now(),
                         updatedBy: currentUser?.username,
                       });
-                      setSuccessMessage('ETD/ETA saved successfully');
+                      setSuccessMessage('ETA saved successfully');
                       setTimeout(() => setSuccessMessage(''), 3000);
                       onRefresh();
                       await fetchUpdatedPackage();
                       moveToNextStage();
                     } catch (err) {
-                      console.error('Error saving ETD/ETA:', err);
-                      setErrorMessage('Failed to save ETD/ETA');
+                      console.error('Error saving ETA:', err);
+                      setErrorMessage('Failed to save ETA');
                     } finally {
                       setLoading(false);
                     }
                   }}
                   isLoading={loading}
                 />
-              ) : activeStage === 2 ? (
+              ) : activeStage === 3 ? (
                 <StageClearance
                   key={`clearance-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
                   timeline={timeline}
@@ -394,7 +431,7 @@ export default function PackageTimelineDrawer({
                   }}
                   isLoading={loading}
                 />
-              ) : activeStage === 3 ? (
+              ) : activeStage === 4 ? (
                 <StageCargoSegregation
                   key={`cargo-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
                   timeline={timeline}
@@ -431,7 +468,7 @@ export default function PackageTimelineDrawer({
                   }}
                   isLoading={loading}
                 />
-              ) : activeStage === 4 ? (
+              ) : activeStage === 5 ? (
                 <StageBilling
                   key={`billing-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
                   timeline={timeline}
@@ -468,7 +505,7 @@ export default function PackageTimelineDrawer({
                   }}
                   isLoading={loading}
                 />
-              ) : activeStage === 5 ? (
+              ) : activeStage === 6 ? (
                 <StagePayment
                   key={`payment-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
                   timeline={timeline}
@@ -505,7 +542,7 @@ export default function PackageTimelineDrawer({
                   }}
                   isLoading={loading}
                 />
-              ) : activeStage === 6 ? (
+              ) : activeStage === 7 ? (
                 <StageDispatch
                   key={`dispatch-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
                   pkg={localPackage}
@@ -864,7 +901,7 @@ function StagePackageCreated({
   );
 }
 
-function StageETDETA({
+function StageETD({
   timeline,
   currentUser,
   onSave,
@@ -875,26 +912,24 @@ function StageETDETA({
   onSave: (data: any) => Promise<void>;
   isLoading: boolean;
 }) {
-  const etdData = timeline.etdEta || {};
+  const etdData = timeline.etd || timeline.etdEta || {};
 
   const [formData, setFormData] = useState({
     estimatedDeparture: formatDateForInput(etdData.estimatedDeparture),
     shippedOnboardDate: formatDateForInput(etdData.shippedOnboardDate),
     sailedDate: formatDateForInput(etdData.sailedDate),
-    expectedArrival: formatDateForInput(etdData.expectedArrival),
     note: etdData.note || '',
   });
 
   useEffect(() => {
-    const etd = timeline.etdEta || {};
+    const etd = timeline.etd || timeline.etdEta || {};
     setFormData({
       estimatedDeparture: formatDateForInput(etd.estimatedDeparture),
       shippedOnboardDate: formatDateForInput(etd.shippedOnboardDate),
       sailedDate: formatDateForInput(etd.sailedDate),
-      expectedArrival: formatDateForInput(etd.expectedArrival),
       note: etd.note || '',
     });
-  }, [timeline.etdEta]);
+  }, [timeline]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -913,9 +948,6 @@ function StageETDETA({
     ) {
       newErrors.sailedDate = 'Please fill in Shipped Onboard Date first';
     }
-    if (formData.sailedDate && !formData.expectedArrival) {
-      newErrors.expectedArrival = 'Please fill in Sailed Date first';
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -933,9 +965,6 @@ function StageETDETA({
         sailedDate: formData.sailedDate
           ? new Date(formData.sailedDate)
           : undefined,
-        expectedArrival: formData.expectedArrival
-          ? new Date(formData.expectedArrival)
-          : undefined,
         note: formData.note,
       });
     }
@@ -945,7 +974,7 @@ function StageETDETA({
     <div className="space-y-6">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">
-          <strong>Stage 2:</strong> Enter ETD/ETA dates. Fields unlock sequentially
+          <strong>Stage 2 (ETD):</strong> Enter ETD dates. Fields unlock sequentially
           - fill in each field before moving to the next.
         </p>
       </div>
@@ -1015,23 +1044,151 @@ function StageETDETA({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Expected Time of Arrival
-            {!formData.sailedDate && (
-              <span className="text-gray-400 ml-1">(fill above first)</span>
+            Common Note
+          </label>
+          <textarea
+            value={formData.note}
+            onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+            className="input-field resize-none"
+            rows={3}
+            placeholder="Add any notes about this stage..."
+          />
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={isLoading}
+          className="w-full btn-primary py-2.5 flex items-center justify-center gap-2"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Check className="w-4 h-4" />
+              Save & Continue
+            </>
+          )}
+        </button>
+      </div>
+
+      {(timeline.etd?.completed || timeline.etdEta?.completed) && (
+        <AlertCustomerButton stage="etd" data={timeline.etd || timeline.etdEta} />
+      )}
+    </div>
+  );
+}
+
+function StageETA({
+  timeline,
+  currentUser,
+  onSave,
+  isLoading,
+}: {
+  timeline: any;
+  currentUser: AuthUser | null;
+  onSave: (data: any) => Promise<void>;
+  isLoading: boolean;
+}) {
+  const etaData = timeline.eta || timeline.etdEta || {};
+
+  const [formData, setFormData] = useState({
+    approxArrivalDate: formatDateForInput(etaData.approxArrivalDate || etaData.expectedArrival),
+    arrivalDate: formatDateForInput(etaData.arrivalDate),
+    note: etaData.note || '',
+  });
+
+  useEffect(() => {
+    const eta = timeline.eta || timeline.etdEta || {};
+    setFormData({
+      approxArrivalDate: formatDateForInput(eta.approxArrivalDate || eta.expectedArrival),
+      arrivalDate: formatDateForInput(eta.arrivalDate),
+      note: eta.note || '',
+    });
+  }, [timeline]);
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.approxArrivalDate) {
+      newErrors.approxArrivalDate = 'Approximate Date of Arrival is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (validateForm()) {
+      await onSave({
+        approxArrivalDate: formData.approxArrivalDate
+          ? new Date(formData.approxArrivalDate)
+          : undefined,
+        arrivalDate: formData.arrivalDate
+          ? new Date(formData.arrivalDate)
+          : undefined,
+        status: formData.approxArrivalDate ? 'In Transit' : '',
+        note: formData.note,
+      });
+    }
+  };
+
+  const hasApproxDate = !!formData.approxArrivalDate;
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-800">
+          <strong>Stage 3 (ETA):</strong> Enter Approximate Date of Arrival. Arrival Date will be enabled once Approximate Date of Arrival is filled.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Approx Date of Arrival *
+          </label>
+          <input
+            type="date"
+            value={formData.approxArrivalDate}
+            onChange={(e) =>
+              setFormData({ ...formData, approxArrivalDate: e.target.value })
+            }
+            className="input-field"
+          />
+          {errors.approxArrivalDate && (
+            <p className="text-red-500 text-sm mt-1">{errors.approxArrivalDate}</p>
+          )}
+        </div>
+
+        {hasApproxDate && (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200 animate-pulse">
+              In Transit
+            </span>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Arrival Date
+            {!hasApproxDate && (
+              <span className="text-gray-400 ml-1">(fill App Date of Arrival first)</span>
             )}
           </label>
           <input
             type="date"
-            value={formData.expectedArrival}
+            value={formData.arrivalDate}
             onChange={(e) =>
-              setFormData({ ...formData, expectedArrival: e.target.value })
+              setFormData({ ...formData, arrivalDate: e.target.value })
             }
             className="input-field"
-            disabled={!formData.sailedDate}
+            disabled={!hasApproxDate}
           />
-          {errors.expectedArrival && (
-            <p className="text-red-500 text-sm mt-1">{errors.expectedArrival}</p>
-          )}
         </div>
 
         <div>
@@ -1066,8 +1223,8 @@ function StageETDETA({
         </button>
       </div>
 
-      {timeline.etdEta?.completed && (
-        <AlertCustomerButton stage="etdEta" data={timeline.etdEta} />
+      {(timeline.eta?.completed || timeline.etdEta?.completed) && (
+        <AlertCustomerButton stage="eta" data={timeline.eta || timeline.etdEta} />
       )}
     </div>
   );

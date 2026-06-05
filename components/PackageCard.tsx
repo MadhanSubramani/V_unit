@@ -11,6 +11,9 @@ interface PackageListProps {
   onDelete: (packageId: string) => void;
   canDelete: boolean;
   onTrack?: (pkg: Package) => void;
+  currentPage?: number;
+  totalPages?: number;
+  onPageChange?: (page: number) => void;
 }
 const statusColors = {
   in_process: 'text-amber-600',

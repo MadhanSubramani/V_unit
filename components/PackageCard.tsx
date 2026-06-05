@@ -2,32 +2,16 @@
 'use client';
 
 import { Package } from '@/types';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Package as PackageIcon,
-  Edit3,
-  Trash2,
-} from 'lucide-react';
+import { Package as PackageIcon, Edit3, Trash2 } from 'lucide-react';
 
 interface PackageListProps {
   packages: Package[];
-  currentPage: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
   isLoading: boolean;
   onEdit: (pkg: Package) => void;
   onDelete: (packageId: string) => void;
   canDelete: boolean;
   onTrack?: (pkg: Package) => void;
 }
-
-const statusStyles = {
-  in_process: 'bg-yellow-100 text-yellow-700',
-  payment_completed: 'bg-blue-100 text-blue-700',
-  operation_completed: 'bg-green-100 text-green-700',
-  operation_cancelled: 'bg-red-100 text-red-700',
-};
 const statusColors = {
   in_process: 'text-amber-600',
   payment_completed: 'text-blue-600',
@@ -45,23 +29,12 @@ const statusLabels = {
 
 export default function PackageList({
   packages,
-  currentPage,
-  totalPages,
-  onPageChange,
   isLoading,
   onEdit,
   onDelete,
   canDelete,
   onTrack,
 }: PackageListProps) {
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }).format(date);
-  };
-
   if (isLoading) {
     return (
       <div className="card">
@@ -257,39 +230,47 @@ export default function PackageList({
   <table className="w-full table-fixed">
     <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
       <tr>
-        <th className="w-[15%] px-4 py-4 text-left text-xs font-bold uppercase text-gray-600">
+        <th className="w-[12%] px-4 py-4 text-left text-xs font-bold uppercase text-gray-600">
           Package
         </th>
 
-        <th className="w-[25%] px-4 py-4 text-left text-xs font-bold uppercase text-gray-600">
+        <th className="w-[20%] px-4 py-4 text-left text-xs font-bold uppercase text-gray-600">
           Description
         </th>
 
-        <th className="w-[15%] px-4 py-4 text-left text-xs font-bold uppercase text-gray-600">
+        <th className="w-[12%] px-4 py-4 text-left text-xs font-bold uppercase text-gray-600">
           Vendor
+        </th>
+
+        <th className="w-[10%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
+          BL No
+        </th>
+
+        <th className="w-[10%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
+          Container No
         </th>
 
         <th className="w-[10%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
           Type
         </th>
 
-        <th className="w-[8%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
+        <th className="w-[6%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
           Qty
         </th>
 
-        <th className="w-[10%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
+        <th className="w-[8%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
           Weight
         </th>
 
-        <th className="w-[7%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
+        <th className="w-[6%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
           CBM
         </th>
 
-        <th className="w-[10%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
+        <th className="w-[8%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
           Status
         </th>
 
-        <th className="w-[10%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
+        <th className="w-[7%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
           Actions
         </th>
       </tr>
@@ -334,6 +315,16 @@ export default function PackageList({
             </div>
           </td>
 
+          {/* BL No */}
+          <td className="px-4 py-4 text-center text-sm text-gray-700">
+            {pkg.blNo || '-'}
+          </td>
+
+          {/* Container No */}
+          <td className="px-4 py-4 text-center text-sm text-gray-700">
+            {pkg.containerNo || '-'}
+          </td>
+
           {/* Type */}
           <td className="px-4 py-4 text-center text-sm text-gray-700">
             {pkg.packageType || '-'}
@@ -355,13 +346,13 @@ export default function PackageList({
           </td>
 
           {/* Status */}
-        <td className="px-4 py-4 text-center">
+          <td className="px-4 py-4 text-center">
   <span
     className={`text-sm font-semibold ${statusColors[pkg.status]}`}
   >
     {statusLabels[pkg.status]}
   </span>
-</td>
+          </td>
 
           {/* Actions */}
           <td className="px-4 py-4">

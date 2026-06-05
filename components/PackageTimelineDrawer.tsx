@@ -669,11 +669,14 @@ function StagePackageCreated({
     description: pkg.description || '',
     packageType: pkg.packageType || '',
     packageCount: pkg.packageCount || '',
+    weightType: pkg.weightType || 'KG',
     weight: pkg.weight || '',
     cbm: pkg.cbm || '',
     vendorId: pkg.vendorId || '',
     vendorName: pkg.vendorName || '',
     vendorCode: pkg.vendorCode || '',
+    vendorDeliveryAddress: pkg.vendorDeliveryAddress || '',
+    vendorBillingAddress: pkg.vendorBillingAddress || '',
   });
 
   useEffect(() => {
@@ -682,11 +685,14 @@ function StagePackageCreated({
       description: pkg.description || '',
       packageType: pkg.packageType || '',
       packageCount: pkg.packageCount || '',
+      weightType: pkg.weightType || 'KG',
       weight: pkg.weight || '',
       cbm: pkg.cbm || '',
       vendorId: pkg.vendorId || '',
       vendorName: pkg.vendorName || '',
       vendorCode: pkg.vendorCode || '',
+      vendorDeliveryAddress: pkg.vendorDeliveryAddress || '',
+      vendorBillingAddress: pkg.vendorBillingAddress || '',
     });
   }, [pkg]);
 
@@ -707,6 +713,21 @@ function StagePackageCreated({
       </div>
 
       <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4">
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2">
+            <p className="text-sm font-semibold text-gray-900">Vendor details</p>
+            <p className="text-sm text-gray-700">
+              <strong>Vendor:</strong> {formData.vendorName || formData.vendorCode || '-'}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>Delivery Address:</strong> {formData.vendorDeliveryAddress || '-'}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>Billing Address:</strong> {formData.vendorBillingAddress || '-'}
+            </p>
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Package Name
@@ -714,8 +735,8 @@ function StagePackageCreated({
           <input
             type="text"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="input-field"
+            disabled
+            className="input-field bg-gray-100"
             placeholder="Package name"
           />
         </div>
@@ -726,10 +747,8 @@ function StagePackageCreated({
           </label>
           <textarea
             value={formData.description}
-            onChange={(e) =>
-              setFormData({ ...formData, description: e.target.value })
-            }
-            className="input-field resize-none"
+            disabled
+            className="input-field resize-none bg-gray-100"
             rows={3}
             placeholder="Package description"
           />
@@ -742,10 +761,8 @@ function StagePackageCreated({
             </label>
             <select
               value={formData.packageType}
-              onChange={(e) =>
-                setFormData({ ...formData, packageType: e.target.value })
-              }
-              className="input-field"
+              disabled
+              className="input-field bg-gray-100"
             >
               <option value="">Select type</option>
               {packageTypeOptions.map((opt) => (
@@ -763,26 +780,36 @@ function StagePackageCreated({
             <input
               type="number"
               value={formData.packageCount}
-              onChange={(e) =>
-                setFormData({ ...formData, packageCount: e.target.value })
-              }
-              className="input-field"
+              disabled
+              className="input-field bg-gray-100"
               placeholder="Qty"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Weight (kg)
+              Weight Type
+            </label>
+            <select
+              value={formData.weightType}
+              disabled
+              className="input-field bg-gray-100"
+            >
+              <option value="KG">KG</option>
+              <option value="TON">TON</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Weight
             </label>
             <input
               type="number"
               step="0.01"
               value={formData.weight}
-              onChange={(e) =>
-                setFormData({ ...formData, weight: e.target.value })
-              }
-              className="input-field"
+              disabled
+              className="input-field bg-gray-100"
               placeholder="Weight"
             />
           </div>
@@ -795,8 +822,8 @@ function StagePackageCreated({
               type="number"
               step="0.01"
               value={formData.cbm}
-              onChange={(e) => setFormData({ ...formData, cbm: e.target.value })}
-              className="input-field"
+              disabled
+              className="input-field bg-gray-100"
               placeholder="CBM"
             />
           </div>

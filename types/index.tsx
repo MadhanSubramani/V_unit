@@ -76,6 +76,13 @@ export interface User {
     createdAt: Date;
     updatedAt: Date;
     description?: string;
+    blNo?: string;
+    containerNo?: string;
+    amountPerCbm?: number;
+    totalAmount?: number;
+    weightType?: 'KG' | 'TON';
+    vendorDeliveryAddress?: string;
+    vendorBillingAddress?: string;
     amount?: number;
     weight?: number;
     cbm?: number;

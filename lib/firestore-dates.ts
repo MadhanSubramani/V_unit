@@ -1,5 +1,15 @@
 import { Timestamp } from 'firebase/firestore';
-import { Package, PackageTimeline } from '@/types';
+import {
+  Package,
+  PackageTimeline,
+  TimelineStage,
+  ETDETAData,
+  ClearanceData,
+  CargoSegregationData,
+  BillingData,
+  PaymentData,
+  DispatchData,
+} from '@/types';
 
 /** Convert Firestore Timestamp, Date, ISO string, or { seconds } to Date */
 export function toDate(value: unknown): Date | undefined {
@@ -29,7 +39,7 @@ export function toDate(value: unknown): Date | undefined {
   return undefined;
 }
 
-/** Format for HTML `<input type="date">` (local calendar date, avoids UTC shift) */
+/** Format for HTML input[type=date] */
 export function formatDateForInput(value: unknown): string {
   const date = toDate(value);
   if (!date) return '';
@@ -39,13 +49,15 @@ export function formatDateForInput(value: unknown): string {
   return `${y}-${m}-${d}`;
 }
 
-function normalizeStage<T extends Record<string, unknown>>(
+function normalizeStage<T extends TimelineStage>(
   stage: T | undefined,
   dateFields: string[]
 ): T | undefined {
   if (!stage) return undefined;
-  const out = { ...stage } as T & Record<string, unknown>;
-  if ('savedAt' in out) out.savedAt = toDate(out.savedAt);
+  const out: any = { ...stage } as T & Record<string, unknown>;
+  if ('savedAt' in out && out.savedAt != null) {
+    out.savedAt = toDate(out.savedAt);
+  }
   for (const field of dateFields) {
     if (field in out && out[field] != null) {
       out[field] = toDate(out[field]);
@@ -54,24 +66,45 @@ function normalizeStage<T extends Record<string, unknown>>(
   return out as T;
 }
 
-export function normalizeTimeline(raw: Record<string, unknown> | undefined): PackageTimeline | undefined {
+export function normalizeTimeline(
+  raw: Record<string, unknown> | undefined
+): PackageTimeline | undefined {
   if (!raw) return undefined;
 
   return {
-    packageCreated: normalizeStage(raw.packageCreated as Record<string, unknown>, []),
-    etdEta: normalizeStage(raw.etdEta as Record<string, unknown>, [
-      'estimatedDeparture',
-      'shippedOnboardDate',
-      'sailedDate',
-      'expectedArrival',
-    ]),
-    clearance: normalizeStage(raw.clearance as Record<string, unknown>, ['clearanceDate']),
-    cargoSegregation: normalizeStage(raw.cargoSegregation as Record<string, unknown>, [
-      'segregationDate',
-    ]),
-    billing: normalizeStage(raw.billing as Record<string, unknown>, ['billingDate']),
-    payment: normalizeStage(raw.payment as Record<string, unknown>, ['paymentDate']),
-    dispatch: normalizeStage(raw.dispatch as Record<string, unknown>, ['dispatchDate']),
+    packageCreated: normalizeStage(
+      raw.packageCreated as TimelineStage,
+      []
+    ),
+    etdEta: normalizeStage(
+      raw.etdEta as ETDETAData,
+      [
+        'estimatedDeparture',
+        'shippedOnboardDate',
+        'sailedDate',
+        'expectedArrival',
+      ]
+    ),
+    clearance: normalizeStage(
+      raw.clearance as ClearanceData,
+      ['clearanceDate']
+    ),
+    cargoSegregation: normalizeStage(
+      raw.cargoSegregation as CargoSegregationData,
+      ['segregationDate']
+    ),
+    billing: normalizeStage(
+      raw.billing as BillingData,
+      ['billingDate']
+    ),
+    payment: normalizeStage(
+      raw.payment as PaymentData,
+      ['paymentDate']
+    ),
+    dispatch: normalizeStage(
+      raw.dispatch as DispatchData,
+      ['dispatchDate']
+    ),
   };
 }
 
@@ -92,6 +125,13 @@ export function normalizePackageFromFirestore(
     cbm: data.cbm as number | undefined,
     packageType: data.packageType as string | undefined,
     packageCount: data.packageCount as number | undefined,
+    blNo: data.blNo as string | undefined,
+    containerNo: data.containerNo as string | undefined,
+    amountPerCbm: data.amountPerCbm as number | undefined,
+    totalAmount: data.totalAmount as number | undefined,
+    weightType: data.weightType as 'KG' | 'TON' | undefined,
+    vendorDeliveryAddress: data.vendorDeliveryAddress as string | undefined,
+    vendorBillingAddress: data.vendorBillingAddress as string | undefined,
     createdBy: data.createdBy as string | undefined,
     updatedBy: data.updatedBy as string | undefined,
     cancelReason: data.cancelReason as string | undefined,

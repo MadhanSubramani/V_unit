@@ -1,5 +1,6 @@
 // src/components/AddPackageModal.tsx
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect } from 'react';
 import {
@@ -43,6 +44,10 @@ export default function AddPackageModal({
   const [vendorId, setVendorId] = useState('');
   const [status, setStatus] = useState<Package['status']>('in_process');
   const [description, setDescription] = useState('');
+  const [blNo, setBlNo] = useState('');
+  const [containerNo, setContainerNo] = useState('');
+  const [amountPerCbm, setAmountPerCbm] = useState('');
+  const [weightType, setWeightType] = useState<Package['weightType']>('KG');
   const [weight, setWeight] = useState('');
   const [cbm, setCbm] = useState('');
   const [packageType, setPackageType] = useState('');
@@ -51,11 +56,21 @@ export default function AddPackageModal({
   const [error, setError] = useState('');
   const [vendors, setVendors] = useState<Vendor[]>([]);
 
+  const computedTotalAmount = (() => {
+    const amount = parseFloat(amountPerCbm);
+    const cbmValue = parseFloat(cbm);
+    return Number.isFinite(amount) && Number.isFinite(cbmValue) ? amount * cbmValue : undefined;
+  })();
+
   const resetForm = () => {
     setName('');
     setVendorId('');
     setStatus('in_process');
     setDescription('');
+    setBlNo('');
+    setContainerNo('');
+    setAmountPerCbm('');
+    setWeightType('KG');
     setWeight('');
     setCbm('');
     setPackageType('');
@@ -105,6 +120,10 @@ export default function AddPackageModal({
       );
       setStatus(editingPackage.status || 'in_process');
       setDescription(editingPackage.description || '');
+      setBlNo(editingPackage.blNo || '');
+      setContainerNo(editingPackage.containerNo || '');
+      setAmountPerCbm(editingPackage.amountPerCbm?.toString() || '');
+      setWeightType(editingPackage.weightType || 'KG');
       setWeight(editingPackage.weight?.toString() || '');
       setCbm(editingPackage.cbm?.toString() || '');
       setPackageType(editingPackage.packageType || '');
@@ -129,21 +148,34 @@ export default function AddPackageModal({
     }
 
     try {
-      const payload = {
+      const parsedAmountPerCbm = amountPerCbm ? parseFloat(amountPerCbm) : undefined;
+      const parsedCbm = cbm ? parseFloat(cbm) : undefined;
+      const calculatedTotalAmount =
+        Number.isFinite(parsedAmountPerCbm ?? NaN) && Number.isFinite(parsedCbm ?? NaN)
+          ? parsedAmountPerCbm! * parsedCbm!
+          : undefined;
+
+      const payload: Record<string, unknown> = {
         name: name.trim(),
         vendorId: selectedVendor.id,
         vendorCode: selectedVendor.id,
         vendorName: selectedVendor.name,
+        vendorDeliveryAddress: selectedVendor.address || undefined,
+        vendorBillingAddress: selectedVendor.billingAddress || undefined,
         status: editingPackage ? status : 'in_process',
         description: description.trim(),
+        blNo: blNo.trim() || undefined,
+        containerNo: containerNo.trim() || undefined,
+        amountPerCbm: parsedAmountPerCbm,
+        totalAmount: calculatedTotalAmount,
+        weightType,
         weight: weight ? parseFloat(weight) : undefined,
-        cbm: cbm ? parseFloat(cbm) : undefined,
+        cbm: parsedCbm,
         packageType: packageType || undefined,
         packageCount: packageCount ? parseInt(packageCount, 10) : undefined,
         updatedAt: Timestamp.now(),
         updatedBy: currentUser?.username || 'Unknown',
-      } as any;
-
+      };
       if (editingPackage) {
         await updateDoc(doc(db, 'packages', editingPackage.id), payload);
       } else {
@@ -223,6 +255,34 @@ export default function AddPackageModal({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                BL No
+              </label>
+              <input
+                type="text"
+                value={blNo}
+                onChange={(e) => setBlNo(e.target.value)}
+                className="input-field"
+                placeholder="Enter BL No"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Container No
+              </label>
+              <input
+                type="text"
+                value={containerNo}
+                onChange={(e) => setContainerNo(e.target.value)}
+                className="input-field"
+                placeholder="Enter container no"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Type of Packages
               </label>
               <select
@@ -254,17 +314,65 @@ export default function AddPackageModal({
             </div>
           </div>
 
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Weight
+            </label>
+            <input
+              type="number"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              className="input-field"
+              placeholder="Enter weight"
+              min="0"
+              step="0.01"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Weight Type
+            </label>
+            <select
+              value={weightType}
+              onChange={(e) =>
+                setWeightType(e.target.value as Package['weightType'])
+              }
+              className="input-field"
+            >
+              <option value="KG">KG</option>
+              <option value="TON">TON</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              CBM (cubic meters)
+            </label>
+            <input
+              type="number"
+              value={cbm}
+              onChange={(e) => setCbm(e.target.value)}
+              className="input-field"
+              placeholder="Enter CBM"
+              min="0"
+              step="0.01"
+            />
+          </div>
+        </div>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Weight (kg)
+                Amount Per CBM
               </label>
               <input
                 type="number"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
+                value={amountPerCbm}
+                onChange={(e) => setAmountPerCbm(e.target.value)}
                 className="input-field"
-                placeholder="Enter weight"
+                placeholder="Enter amount per CBM"
                 min="0"
                 step="0.01"
               />
@@ -272,16 +380,14 @@ export default function AddPackageModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                CBM (cubic meters)
+                Total Amount
               </label>
               <input
                 type="number"
-                value={cbm}
-                onChange={(e) => setCbm(e.target.value)}
-                className="input-field"
-                placeholder="Enter CBM"
-                min="0"
-                step="0.01"
+                value={computedTotalAmount != null ? computedTotalAmount.toFixed(2) : ''}
+                className="input-field bg-gray-50 text-gray-700"
+                placeholder="Calculated total"
+                disabled
               />
             </div>
           </div>

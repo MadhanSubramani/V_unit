@@ -112,7 +112,7 @@ export default function VendorCodePage() {
       return 'Please enter a valid email address.';
     }
     if (!formData.address.trim()) {
-      return 'Address is required.';
+      return 'Delivery address is required.';
     }
     if (!formData.billingAddress.trim()) {
       return 'Billing address is required.';
@@ -348,7 +348,7 @@ export default function VendorCodePage() {
     </th>
 
     <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-gray-600">
-     Delivery Address
+      Delivery Address
     </th>
 
     <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-gray-600">
@@ -525,12 +525,12 @@ export default function VendorCodePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Address *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Delivery Address *</label>
                 <textarea
                   value={formData.address}
                   onChange={(e) => handleInputChange('address', e.target.value)}
                   className="input-field resize-none"
-                  placeholder="Vendor address"
+                  placeholder="Enter delivery address"
                   rows={3}
                   required
                 />

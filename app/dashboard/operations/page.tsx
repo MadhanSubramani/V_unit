@@ -14,10 +14,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Operation } from '@/types';
-import { Pencil, Trash2 } from 'lucide-react';
 
 export default function OperationsPage() {
-  const [operationType, setOperationType] = useState<'ETA/ETD' | 'Billing' | 'Payment' | 'Cargo Segregation' |'Clearance' | 'Dispatch Status'>('ETA/ETD');
+  const [operationType, setOperationType] = useState<'Billing' | 'Payment' | 'Cargo Segregation' | 'Clearance' | 'Dispatch Status'>('Billing');
   const [statusInput, setStatusInput] = useState('');
   const [statuses, setStatuses] = useState<string[]>([]);
   const [operations, setOperations] = useState<Operation[]>([]);
@@ -27,7 +26,7 @@ export default function OperationsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const allOperationTypes: Operation['type'][] = ['ETA/ETD', 'Billing', 'Payment', 'Cargo Segregation', 'Clearance', 'Dispatch Status'  ];
+  const allOperationTypes: Operation['type'][] = ['Billing', 'Payment', 'Cargo Segregation', 'Clearance', 'Dispatch Status'];
   const availableCreateTypes = allOperationTypes.filter(
     (type) => !operations.some((operation) => operation.type === type)
   );
@@ -67,7 +66,7 @@ export default function OperationsPage() {
   }, [fetchOperations]);
 
   const resetForm = () => {
-    setOperationType('ETA/ETD');
+    setOperationType('Billing');
     setStatusInput('');
     setStatuses([]);
     setEditingOperation(null);
@@ -178,7 +177,7 @@ export default function OperationsPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Operations</h1>
             <p className="mt-2 text-gray-500 max-w-xl">
-              Manage operation entries with ETA/ETD, Billing, Payment, and Cargo types.
+              Manage operation entries with Billing, Payment, Cargo Segregation, Clearance, and Dispatch Status types.
             </p>
           </div>
           <button

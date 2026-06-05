@@ -91,7 +91,7 @@ export interface User {
 
   export interface Operation {
     id: string;
-    type: 'ETA/ETD' | 'Billing' | 'Payment' | 'Cargo Segregation' | 'Clearance' | 'Dispatch Status';
+    type: 'Billing' | 'Payment' | 'Cargo Segregation' | 'Clearance' | 'Dispatch Status';
     status: string[];
     createdAt: Date;
     updatedAt: Date;

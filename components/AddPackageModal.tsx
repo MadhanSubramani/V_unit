@@ -13,7 +13,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { X, Loader2,ChevronDown } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { Package, AuthUser, Vendor } from '@/types';
 
 
@@ -31,13 +31,6 @@ const packageTypeOptions = [
   { value: 'Rolls', label: 'Rolls' },
   { value: 'Drums', label: 'Drums' },
 ];
-
-const statusOptions = [
-  { value: 'in_process', label: 'In Process' },
-  { value: 'payment_completed', label: 'Payment Completed' },
-  { value: 'operation_completed', label: 'Operation Completed' },
-  { value: 'operation_cancelled', label: 'Operation Cancelled' },
-] as const;
 
 export default function AddPackageModal({
   isOpen,
@@ -305,25 +298,6 @@ export default function AddPackageModal({
               rows={4}
             />
           </div>
-
-          {editingPackage && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Status
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as Package['status'])}
-                className="input-field"
-              >
-                {statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">

@@ -210,7 +210,9 @@ export default function OperationsPage() {
             ) : operations.length === 0 ? (
               <div className="p-6 text-center text-gray-500">No operations found</div>
             ) : (
-              <div className="overflow-x-auto">
+            <div>
+              {/* ================= DESKTOP TABLE ================= */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -261,7 +263,56 @@ export default function OperationsPage() {
                   </tbody>
                 </table>
               </div>
-              
+
+              {/* ================= MOBILE CARDS ================= */}
+              <div className="md:hidden space-y-4">
+                {operations.map((operation) => (
+                  <div
+                    key={operation.id}
+                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                  >
+                    {/* Header */}
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-semibold text-gray-900">
+                        {operation.type}
+                      </h3>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditOperation(operation)}
+                          className="rounded-lg bg-green-500 px-3 py-1 text-xs text-white"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteOperation(operation.id)}
+                          className="rounded-lg bg-red-500 px-3 py-1 text-xs text-white"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Status */}
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-500 mb-1">Status</p>
+                      <p className="text-sm text-gray-700">
+                        {operation.status.join(', ') || '-'}
+                      </p>
+                    </div>
+
+                    {/* Created At */}
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-500 mb-1">Created At</p>
+                      <p className="text-sm text-gray-700">
+                        {formatDate(operation.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
             )}
           </div>
         </div>
@@ -274,7 +325,7 @@ export default function OperationsPage() {
             onClick={() => setShowAddOperation(false)}
           />
 
-          <div className="fixed top-0 right-0 z-50 h-full w-full md:w-1/2 bg-white shadow-xl">
+           <div className="fixed top-0 right-0 z-50 h-full w-full md:w-1/2 bg-white shadow-xl overflow-y-auto">
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b p-6">
                 <h2 className="text-xl font-semibold">
@@ -323,7 +374,7 @@ export default function OperationsPage() {
                     <button
                       type="button"
                       onClick={handleAddStatus}
-                      className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                      className="w-full sm:w-auto rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
                     >
                       Add status
                     </button>
@@ -351,18 +402,18 @@ export default function OperationsPage() {
                 )}
 
                 <div className="border-t pt-6">
-                  <div className="flex justify-end gap-3">
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
                     <button
                       type="button"
                       onClick={() => setShowAddOperation(false)}
-                      className="rounded-lg border px-4 py-2"
+                      className="w-full sm:w-auto rounded-lg border px-4 py-2"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isSaving || (!editingOperation && availableTypes.length === 0)}
-                      className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+                      className="w-full sm:w-auto rounded-lg bg-blue-600 px-4 py-2 text-white"
                     >
                       {isSaving ? 'Saving...' : editingOperation ? 'Update Operation' : 'Save Operation'}
                     </button>

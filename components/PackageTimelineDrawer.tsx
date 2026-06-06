@@ -751,6 +751,7 @@ function StagePackageCreated({
       </div>
 
       <div className="space-y-4">
+        <p className="font-medium text-gray-900">Read-Only Information</p>
         <div className="grid grid-cols-1 gap-4">
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2">
             <p className="text-sm font-semibold text-gray-900">Vendor details</p>
@@ -792,7 +793,7 @@ function StagePackageCreated({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Package Type
@@ -862,7 +863,6 @@ function StagePackageCreated({
         </div>
 
         <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
-          <p className="font-medium text-gray-900">Read-Only Information:</p>
           <p className="text-gray-600">
             <strong>Created:</strong> {pkg.createdAt?.toLocaleDateString()} by{' '}
             {pkg.createdBy || 'Unknown'}

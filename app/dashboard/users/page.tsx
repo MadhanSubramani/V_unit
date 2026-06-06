@@ -10,6 +10,7 @@ import {
   doc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { AlertCircle } from 'lucide-react';
 
 interface User {
   id: string;
@@ -38,6 +39,7 @@ export default function UsersPage() {
     password: '',
     role: 'user',
   });
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -140,18 +142,15 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) {
-      return;
-    }
+  const handleDeleteUser = async () => {
+    if (!deleteId) return;
 
     try {
-      await deleteDoc(doc(db, 'users', userId));
-      alert('User deleted successfully');
+      await deleteDoc(doc(db, 'users', deleteId));
+      setDeleteId(null);
       await fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert('Failed to delete user');
     }
   };
 
@@ -316,11 +315,11 @@ export default function UsersPage() {
                                 Edit
                               </button>
                               <button
-                                onClick={() => handleDeleteUser(user.id)}
+                                onClick={() => setDeleteId(user.id)}
                                 className="rounded-full bg-red-500 px-3 py-1 text-xs text-white hover:bg-red-600"
                               >
-                                Delete
-                              </button>
+                              Delete
+                            </button>
                             </div>
                           </td>
                         </tr>
@@ -364,8 +363,8 @@ export default function UsersPage() {
                           </button>
 
                           <button
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="rounded-lg bg-red-500 px-3 py-1 text-xs text-white"
+                            onClick={() => setDeleteId(user.id)}
+                            className="rounded-full bg-red-500 px-3 py-1 text-xs text-white hover:bg-red-600"
                           >
                             Delete
                           </button>
@@ -400,7 +399,7 @@ export default function UsersPage() {
       {showAddUser && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/40"
+            className="fixed inset-0 z-40 bg-transparent backdrop-blur-sm"
             onClick={() => setShowAddUser(false)}
           />
 
@@ -517,7 +516,7 @@ export default function UsersPage() {
       {showEditUser && editingUser && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/40"
+            className="fixed inset-0 z-40 bg-transparent backdrop-blur-sm"
             onClick={() => setShowEditUser(false)}
           />
 
@@ -628,6 +627,41 @@ export default function UsersPage() {
           </div>
         </>
       )}
+
+      {deleteId && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-lg">
+      
+                  <div className="flex items-center gap-3 mb-4">
+                    <AlertCircle className="w-6 h-6 text-red-500" />
+                    <h3 className="text-lg font-bold text-gray-900">
+                      Delete User
+                    </h3>
+                  </div>
+      
+                  <p className="text-gray-700 mb-6">
+                    This action cannot be undone. Are you sure you want to delete this user?
+                  </p>
+      
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setDeleteId(null)}
+                      className="flex-1 btn-secondary py-2"
+                    >
+                      Cancel
+                    </button>
+      
+                    <button
+                      onClick={handleDeleteUser}
+                      className="flex-1 btn-primary py-2 bg-red-600 hover:bg-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
+      
+                </div>
+              </div>
+            )}
     </>
   );
 }

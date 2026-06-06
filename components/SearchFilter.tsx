@@ -4,7 +4,7 @@
 import { Search, X, ChevronDown } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
-export type SearchType = 'name' | 'vendorName' | 'packageType';
+export type SearchType = 'name' | 'vendorName' | 'packageType' | 'blNo' | 'containerNo';
 
 interface SearchFilterProps {
   searchTerm: string;
@@ -21,6 +21,8 @@ interface SearchFilterProps {
 const SEARCH_TYPES: { value: SearchType; label: string; placeholder: string }[] = [
   { value: 'name',        label: 'Package Name', placeholder: 'Search by package name...' },
   { value: 'vendorName',  label: 'Vendor Name',  placeholder: 'Search by vendor name...' },
+  { value: 'blNo',        label: 'BL No',        placeholder: 'Search by BL number...' },
+  { value: 'containerNo', label: 'Container No', placeholder: 'Search by container number...' },
   { value: 'packageType', label: 'Package Type', placeholder: 'Search by package type...' }
 ];
 

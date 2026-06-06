@@ -797,18 +797,13 @@ function StagePackageCreated({
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Package Type
             </label>
-            <select
+            <input
+              type="text"
               value={formData.packageType}
               disabled
               className="input-field bg-gray-100"
-            >
-              <option value="">Select type</option>
-              {packageTypeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              placeholder="Package Type"
+            />
           </div>
 
           <div>
@@ -828,14 +823,13 @@ function StagePackageCreated({
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Weight Type
             </label>
-            <select
+            <input
+              type="text"
               value={formData.weightType}
               disabled
               className="input-field bg-gray-100"
-            >
-              <option value="KG">KG</option>
-              <option value="TON">TON</option>
-            </select>
+              placeholder="Weight Type"
+            />
           </div>
 
           <div>

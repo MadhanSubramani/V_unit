@@ -259,73 +259,139 @@ export default function UsersPage() {
               No users found
             </div>
           ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Username
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Role
-                      </th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                  User ID
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                  Created At
-                                </th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {users.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-gray-900">
-                          {user.username || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-600">
-                          {user.role || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-500">
-                          {user.userId || '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-500">
-                          { user.createdAt
-                            ? user.createdAt.toDate().toLocaleDateString()
-                            : '-'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-4 text-right text-sm font-medium">
-                          <div className="inline-flex items-center gap-2">
-                            <button
-                              onClick={() => {
-                                setEditingUser(user);
-                                setEditFormData({
-                                  username: user.username || '',
-                                  password: '',
-                                  role: user.role || 'user',
-                                });
-                                setShowEditUser(true);
-                              }}
-                              className="rounded-full bg-green-500 px-3 py-1 text-xs font-semibold text-white hover:bg-green-600"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-600"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
+              <>
+                {/* ================= DESKTOP TABLE ================= */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Username
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Role
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          User ID
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500">
+                          Created At
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-500">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {users.map((user) => (
+                        <tr key={user.id} className="hover:bg-gray-50">
+                          <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-gray-900">
+                            {user.username || '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-600">
+                            {user.role || '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-500">
+                            {user.userId || '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-500">
+                            {user.createdAt
+                              ? user.createdAt.toDate().toLocaleDateString()
+                              : '-'}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-right text-sm">
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setEditingUser(user);
+                                  setEditFormData({
+                                    username: user.username || '',
+                                    password: '',
+                                    role: user.role || 'user',
+                                  });
+                                  setShowEditUser(true);
+                                }}
+                                className="rounded-full bg-green-500 px-3 py-1 text-xs text-white hover:bg-green-600"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="rounded-full bg-red-500 px-3 py-1 text-xs text-white hover:bg-red-600"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* ================= MOBILE CARDS ================= */}
+                <div className="md:hidden space-y-4">
+                  {users.map((user) => (
+                    <div
+                      key={user.id}
+                      className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                    >
+                      {/* Header */}
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {user.username || '-'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {user.userId || '-'}
+                          </p>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingUser(user);
+                              setEditFormData({
+                                username: user.username || '',
+                                password: '',
+                                role: user.role || 'user',
+                              });
+                              setShowEditUser(true);
+                            }}
+                            className="rounded-lg bg-green-500 px-3 py-1 text-xs text-white"
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="rounded-lg bg-red-500 px-3 py-1 text-xs text-white"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Details */}
+                      <div className="mt-3 space-y-2 text-sm">
+                        <div>
+                          <span className="text-xs text-gray-500">Role</span>
+                          <p className="text-gray-700">{user.role || '-'}</p>
+                        </div>
+
+                        <div>
+                          <span className="text-xs text-gray-500">Created</span>
+                          <p className="text-gray-700">
+                            {user.createdAt
+                              ? user.createdAt.toDate().toLocaleDateString()
+                              : '-'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
           )}
           </div>
         </div>

@@ -22,7 +22,7 @@ import { Package } from '@/types';
 import { normalizePackageFromFirestore } from '@/lib/firestore-dates';
 import { useAuth } from '@/context/AuthContext';
 import StatsCard from '@/components/StatsCard';
-import SearchFilter from '@/components/SearchFilter';
+import SearchFilter, { SearchType } from '@/components/SearchFilter';
 import PackageList from '@/components/PackageCard';
 import AddPackageModal from '@/components/AddPackageModal';
 import PackageTimelineDrawer from '@/components/PackageTimelineDrawer';
@@ -30,14 +30,22 @@ import { Clock, CheckCircle, XCircle, ShieldCheck, Plus, AlertCircle } from 'luc
 
 const ITEMS_PER_PAGE = 5;
 
-type StatusFilter = 'in_process' | 'payment_completed' | 'operation_completed' | 'operation_cancelled' | null;
+type StatusFilter =
+  | 'in_process'
+  | 'payment_completed'
+  | 'operation_completed'
+  | 'operation_cancelled'
+  | null;
 
 export default function DashboardHome() {
   const { user } = useAuth();
+
+  // Raw packages from Firestore (current page or search batch)
   const [packages, setPackages] = useState<Package[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
   const [showTimelineDrawer, setShowTimelineDrawer] = useState(false);
@@ -55,9 +63,13 @@ export default function DashboardHome() {
   });
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchType, setSearchType] = useState<SearchType>('name');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
+  const isSearching = searchTerm.trim().length > 0;
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
   const fetchStats = useCallback(async () => {
     const ref = collection(db, 'packages');
     const [inProcess, paymentCompleted, operationCompleted, operationCancelled] =
@@ -67,7 +79,6 @@ export default function DashboardHome() {
         getCountFromServer(query(ref, where('status', '==', 'operation_completed'))),
         getCountFromServer(query(ref, where('status', '==', 'operation_cancelled'))),
       ]);
-
     setStats({
       inProcess: inProcess.data().count,
       paymentCompleted: paymentCompleted.data().count,
@@ -76,41 +87,87 @@ export default function DashboardHome() {
     });
   }, []);
 
-  const buildBaseConstraints = useCallback(() => {
-    const constraints: Parameters<typeof query>[1][] = [orderBy('createdAt', 'desc')];
+  // ── Build server-side constraints (status + date only, no search field) ───
+  const buildServerConstraints = useCallback(() => {
+    const constraints: Parameters<typeof query>[1][] = [];
 
-    // Status filter from card click
     if (activeStatus) {
       constraints.push(where('status', '==', activeStatus));
     }
 
-    if (fromDate) {
-      const from = new Date(fromDate);
-      from.setHours(0, 0, 0, 0);
-      constraints.push(where('createdAt', '>=', Timestamp.fromDate(from)));
+    if (!isSearching) {
+      // Date filters only apply when not doing a text search
+      // (avoids conflict with orderBy field)
+      if (fromDate) {
+        const from = new Date(fromDate);
+        from.setHours(0, 0, 0, 0);
+        constraints.push(where('createdAt', '>=', Timestamp.fromDate(from)));
+      }
+      if (toDate) {
+        const to = new Date(toDate);
+        to.setHours(23, 59, 59, 999);
+        constraints.push(where('createdAt', '<=', Timestamp.fromDate(to)));
+      }
     }
 
-    if (toDate) {
-      const to = new Date(toDate);
-      to.setHours(23, 59, 59, 999);
-      constraints.push(where('createdAt', '<=', Timestamp.fromDate(to)));
-    }
+    constraints.push(orderBy('createdAt', 'desc'));
 
     return constraints;
-  }, [activeStatus, fromDate, toDate]);
+  }, [activeStatus, fromDate, toDate, isSearching]);
 
+  // ── Client-side search filter (case-insensitive, applied after fetch) ──────
+  const applySearchFilter = useCallback(
+    (items: Package[]): Package[] => {
+      if (!isSearching) return items;
+      const term = searchTerm.trim().toLowerCase();
+      return items.filter((pkg) => {
+        const fieldValue = (pkg[searchType as keyof Package] as string | undefined) ?? '';
+        return fieldValue.toLowerCase().includes(term);
+      });
+    },
+    [isSearching, searchTerm, searchType]
+  );
+
+  // ── SEARCH MODE: fetch all (status-filtered) docs, filter client-side ──────
+  const fetchSearch = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const packagesRef = collection(db, 'packages');
+      const constraints = buildServerConstraints();
+
+      // Fetch all docs matching server constraints (no limit)
+      const snap = await getDocs(query(packagesRef, ...constraints));
+      const all: Package[] = snap.docs.map((d) =>
+        normalizePackageFromFirestore(d.id, d.data() as Record<string, unknown>)
+      );
+
+      // Apply client-side search filter
+      const filtered = applySearchFilter(all);
+
+      // Paginate in memory
+      const total = filtered.length;
+      setTotalCount(total);
+      const start = (currentPage - 1) * ITEMS_PER_PAGE;
+      setPackages(filtered.slice(start, start + ITEMS_PER_PAGE));
+    } catch (error) {
+      console.error('Error searching packages:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [buildServerConstraints, applySearchFilter, currentPage]);
+
+  // ── NORMAL MODE: server-side pagination with cursors ──────────────────────
   const fetchPage = useCallback(
     async (page: number) => {
       setIsLoading(true);
       try {
         const packagesRef = collection(db, 'packages');
-        const baseConstraints = buildBaseConstraints();
+        const baseConstraints = buildServerConstraints();
 
         const countSnap = await getCountFromServer(query(packagesRef, ...baseConstraints));
         setTotalCount(countSnap.data().count);
 
         const pageConstraints = [...baseConstraints, limit(ITEMS_PER_PAGE)];
-
         if (page > 1) {
           const cursor = pageCursors.current.get(page);
           if (cursor) pageConstraints.push(startAfter(cursor));
@@ -119,53 +176,42 @@ export default function DashboardHome() {
         const snap = await getDocs(query(packagesRef, ...pageConstraints));
 
         if (!snap.empty) {
-          const lastDoc = snap.docs[snap.docs.length - 1];
-          pageCursors.current.set(page + 1, lastDoc);
+          pageCursors.current.set(page + 1, snap.docs[snap.docs.length - 1]);
         }
 
-        const fetched: Package[] = snap.docs.map((d) =>
-          normalizePackageFromFirestore(d.id, d.data() as Record<string, unknown>)
+        setPackages(
+          snap.docs.map((d) =>
+            normalizePackageFromFirestore(d.id, d.data() as Record<string, unknown>)
+          )
         );
-
-        const filtered = searchTerm
-          ? fetched.filter((pkg) => {
-              const s = searchTerm.toLowerCase();
-              return (
-                pkg.name.toLowerCase().includes(s) ||
-                (pkg.vendorName || pkg.vendorCode || '').toLowerCase().includes(s) ||
-                pkg.description?.toLowerCase().includes(s) ||
-                pkg.packageType?.toLowerCase().includes(s) ||
-                pkg.createdBy?.toLowerCase().includes(s) ||
-                pkg.updatedBy?.toLowerCase().includes(s)
-              );
-            })
-          : fetched;
-
-        setPackages(filtered);
       } catch (error) {
         console.error('Error fetching packages:', error);
       } finally {
         setIsLoading(false);
       }
     },
-    [buildBaseConstraints, searchTerm]
+    [buildServerConstraints]
   );
 
-  // Reset cursors + page when any filter changes
+  // ── Reset cursors + page on filter changes ────────────────────────────────
   useEffect(() => {
     pageCursors.current.clear();
     setCurrentPage(1);
-  }, [searchTerm, fromDate, toDate, activeStatus]);
+  }, [searchTerm, searchType, fromDate, toDate, activeStatus]);
 
+  // ── Route to search or paginated fetch ───────────────────────────────────
   useEffect(() => {
-    fetchPage(currentPage);
-  }, [currentPage, fetchPage]);
+    if (isSearching) {
+      fetchSearch();
+    } else {
+      fetchPage(currentPage);
+    }
+  }, [currentPage, isSearching, fetchSearch, fetchPage]);
 
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
 
-  // Toggle status filter — clicking the same card again deselects it
   const handleStatusCardClick = (status: StatusFilter) => {
     setActiveStatus((prev) => (prev === status ? null : status));
   };
@@ -285,7 +331,9 @@ export default function DashboardHome() {
       {/* Search and Filters */}
       <SearchFilter
         searchTerm={searchTerm}
+        searchType={searchType}
         onSearchChange={setSearchTerm}
+        onSearchTypeChange={setSearchType}
         fromDate={fromDate}
         toDate={toDate}
         onFromDateChange={setFromDate}

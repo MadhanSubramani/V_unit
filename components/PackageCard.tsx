@@ -86,7 +86,7 @@ return (
               Description
             </th>
 
-            <th className="w-[12%] px-4 py-4 text-left text-xs font-bold uppercase text-gray-600">
+            <th className="w-[8%] px-4 py-4 text-left text-xs font-bold uppercase text-gray-600">
               Vendor
             </th>
 
@@ -114,7 +114,7 @@ return (
               CBM
             </th>
 
-            <th className="w-[8%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
+            <th className="w-[12%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
               Status
             </th>
 

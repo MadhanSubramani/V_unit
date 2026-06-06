@@ -33,7 +33,10 @@ export default function UsersPage() {
     password: '',
     role: 'user',
   });
-
+  const [formErrors, setFormErrors] = useState({
+    username: '',
+    password: '',
+  });
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -85,15 +88,23 @@ export default function UsersPage() {
   };
 
   const handleSaveUser = async () => {
-    if (!formData.username.trim()) {
-      alert('Username is required');
-      return;
-    }
+  const errors = {
+    username: '',
+    password: '',
+  };
 
-    if (!formData.password.trim()) {
-      alert('Password is required');
-      return;
-    }
+  if (!formData.username.trim()) {
+    errors.username = 'Username is required';
+  }
+
+  if (!formData.password.trim()) {
+    errors.password = 'Password is required';
+  }
+
+  if (errors.username || errors.password) {
+    setFormErrors(errors);
+    return;
+  }
 
     try {
       setSaving(true);
@@ -429,15 +440,22 @@ export default function UsersPage() {
                   <input
                     type="text"
                     value={formData.username}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData({
                         ...formData,
                         username: e.target.value,
                       })
+                      setFormErrors((prev) => ({ ...prev, username: '' }));
+                    }
                     }
                     className="w-full rounded-lg border px-3 py-2"
                     placeholder="Enter username"
                   />
+                  <div className="h-5 mt-1">
+                    <p className="text-sm text-red-500">
+                      {formErrors.username || ''}
+                    </p>
+                  </div>
                 </div>
 
                 <div>
@@ -448,15 +466,22 @@ export default function UsersPage() {
                   <input
                     type="password"
                     value={formData.password}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData({
                         ...formData,
                         password: e.target.value,
                       })
+                      setFormErrors((prev) => ({ ...prev, password: '' }));
+                    }
                     }
                     className="w-full rounded-lg border px-3 py-2"
                     placeholder="Enter password"
                   />
+                  <div className="h-5 mt-1">
+                    <p className="text-sm text-red-500">
+                      {formErrors.password  || ''}
+                    </p>
+                  </div>
                 </div>
 
                 <div>
@@ -546,15 +571,22 @@ export default function UsersPage() {
                   <input
                     type="text"
                     value={editFormData.username}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setEditFormData({
                         ...editFormData,
                         username: e.target.value,
                       })
+                      setFormErrors((prev) => ({ ...prev, username: '' }));
+                    }
                     }
                     className="w-full rounded-lg border px-3 py-2"
                     placeholder="Enter username"
                   />
+                  <div className="h-5 mt-1">
+                    <p className="text-sm text-red-500">
+                      {formErrors.username || ''}
+                    </p>
+                  </div>
                 </div>
 
                 <div>
@@ -565,15 +597,22 @@ export default function UsersPage() {
                   <input
                     type="password"
                     value={editFormData.password}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setEditFormData({
                         ...editFormData,
                         password: e.target.value,
                       })
+                      setFormErrors((prev) => ({ ...prev, password: '' }));
+                    } 
                     }
                     className="w-full rounded-lg border px-3 py-2"
                     placeholder="Enter new password"
                   />
+                  <div className="h-5 mt-1">
+                    <p className="text-sm text-red-500">
+                      {formErrors.password  || ''}
+                    </p>
+                  </div>
                 </div>
 
                 <div>

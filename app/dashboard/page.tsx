@@ -1,7 +1,7 @@
 // src/app/dashboard/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   collection,
   query,
@@ -9,6 +9,13 @@ import {
   getDocs,
   deleteDoc,
   doc,
+  limit,
+  startAfter,
+  getCountFromServer,
+  QueryDocumentSnapshot,
+  DocumentData,
+  where,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Package } from '@/types';
@@ -23,19 +30,23 @@ import { Clock, CheckCircle, XCircle, ShieldCheck, Plus, AlertCircle } from 'luc
 
 const ITEMS_PER_PAGE = 5;
 
+type StatusFilter = 'in_process' | 'payment_completed' | 'operation_completed' | 'operation_cancelled' | null;
+
 export default function DashboardHome() {
   const { user } = useAuth();
   const [packages, setPackages] = useState<Package[]>([]);
-  const [filteredPackages, setFilteredPackages] = useState<Package[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
   const [showTimelineDrawer, setShowTimelineDrawer] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [activeStatus, setActiveStatus] = useState<StatusFilter>(null);
 
-  // Stats
+  const pageCursors = useRef<Map<number, QueryDocumentSnapshot<DocumentData>>>(new Map());
+
   const [stats, setStats] = useState({
     inProcess: 0,
     paymentCompleted: 0,
@@ -43,86 +54,121 @@ export default function DashboardHome() {
     operationCancelled: 0,
   });
 
-  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
-  const fetchPackages = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const packagesRef = collection(db, 'packages');
-      const q = query(packagesRef, orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
+  const fetchStats = useCallback(async () => {
+    const ref = collection(db, 'packages');
+    const [inProcess, paymentCompleted, operationCompleted, operationCancelled] =
+      await Promise.all([
+        getCountFromServer(query(ref, where('status', '==', 'in_process'))),
+        getCountFromServer(query(ref, where('status', '==', 'payment_completed'))),
+        getCountFromServer(query(ref, where('status', '==', 'operation_completed'))),
+        getCountFromServer(query(ref, where('status', '==', 'operation_cancelled'))),
+      ]);
 
-      const fetchedPackages: Package[] = [];
-      let inProcess = 0;
-      let paymentCompleted = 0;
-      let operationCompleted = 0;
-      let operationCancelled = 0;
-
-      querySnapshot.forEach((docSnap) => {
-        const pkg = normalizePackageFromFirestore(
-          docSnap.id,
-          docSnap.data() as Record<string, unknown>
-        );
-        fetchedPackages.push(pkg);
-
-        if (pkg.status === 'in_process') inProcess++;
-        else if (pkg.status === 'payment_completed') paymentCompleted++;
-        else if (pkg.status === 'operation_completed') operationCompleted++;
-        else if (pkg.status === 'operation_cancelled') operationCancelled++;
-      });
-
-      setPackages(fetchedPackages);
-      setStats({ inProcess, paymentCompleted, operationCompleted, operationCancelled });
-    } catch (error) {
-      console.error('Error fetching packages:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    setStats({
+      inProcess: inProcess.data().count,
+      paymentCompleted: paymentCompleted.data().count,
+      operationCompleted: operationCompleted.data().count,
+      operationCancelled: operationCancelled.data().count,
+    });
   }, []);
 
-  useEffect(() => {
-    fetchPackages();
-  }, [fetchPackages]);
+  const buildBaseConstraints = useCallback(() => {
+    const constraints: Parameters<typeof query>[1][] = [orderBy('createdAt', 'desc')];
 
-  // Apply filters
-  useEffect(() => {
-    let filtered = [...packages];
-
-    // Search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (pkg) =>
-          pkg.name.toLowerCase().includes(search) ||
-          (pkg.vendorName || pkg.vendorCode || '')
-            .toLowerCase()
-            .includes(search) ||
-          pkg.description?.toLowerCase().includes(search) ||
-          pkg.packageType?.toLowerCase().includes(search) ||
-          pkg.createdBy?.toLowerCase().includes(search) ||
-          pkg.updatedBy?.toLowerCase().includes(search)
-      );
+    // Status filter from card click
+    if (activeStatus) {
+      constraints.push(where('status', '==', activeStatus));
     }
 
-    // Date filters
     if (fromDate) {
       const from = new Date(fromDate);
       from.setHours(0, 0, 0, 0);
-      filtered = filtered.filter((pkg) => pkg.createdAt >= from);
+      constraints.push(where('createdAt', '>=', Timestamp.fromDate(from)));
     }
 
     if (toDate) {
       const to = new Date(toDate);
       to.setHours(23, 59, 59, 999);
-      filtered = filtered.filter((pkg) => pkg.createdAt <= to);
+      constraints.push(where('createdAt', '<=', Timestamp.fromDate(to)));
     }
 
-    setFilteredPackages(filtered);
+    return constraints;
+  }, [activeStatus, fromDate, toDate]);
+
+  const fetchPage = useCallback(
+    async (page: number) => {
+      setIsLoading(true);
+      try {
+        const packagesRef = collection(db, 'packages');
+        const baseConstraints = buildBaseConstraints();
+
+        const countSnap = await getCountFromServer(query(packagesRef, ...baseConstraints));
+        setTotalCount(countSnap.data().count);
+
+        const pageConstraints = [...baseConstraints, limit(ITEMS_PER_PAGE)];
+
+        if (page > 1) {
+          const cursor = pageCursors.current.get(page);
+          if (cursor) pageConstraints.push(startAfter(cursor));
+        }
+
+        const snap = await getDocs(query(packagesRef, ...pageConstraints));
+
+        if (!snap.empty) {
+          const lastDoc = snap.docs[snap.docs.length - 1];
+          pageCursors.current.set(page + 1, lastDoc);
+        }
+
+        const fetched: Package[] = snap.docs.map((d) =>
+          normalizePackageFromFirestore(d.id, d.data() as Record<string, unknown>)
+        );
+
+        const filtered = searchTerm
+          ? fetched.filter((pkg) => {
+              const s = searchTerm.toLowerCase();
+              return (
+                pkg.name.toLowerCase().includes(s) ||
+                (pkg.vendorName || pkg.vendorCode || '').toLowerCase().includes(s) ||
+                pkg.description?.toLowerCase().includes(s) ||
+                pkg.packageType?.toLowerCase().includes(s) ||
+                pkg.createdBy?.toLowerCase().includes(s) ||
+                pkg.updatedBy?.toLowerCase().includes(s)
+              );
+            })
+          : fetched;
+
+        setPackages(filtered);
+      } catch (error) {
+        console.error('Error fetching packages:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [buildBaseConstraints, searchTerm]
+  );
+
+  // Reset cursors + page when any filter changes
+  useEffect(() => {
+    pageCursors.current.clear();
     setCurrentPage(1);
-  }, [packages, searchTerm, fromDate, toDate]);
+  }, [searchTerm, fromDate, toDate, activeStatus]);
+
+  useEffect(() => {
+    fetchPage(currentPage);
+  }, [currentPage, fetchPage]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  // Toggle status filter — clicking the same card again deselects it
+  const handleStatusCardClick = (status: StatusFilter) => {
+    setActiveStatus((prev) => (prev === status ? null : status));
+  };
 
   const handleEditPackage = (pkg: Package) => {
     setEditingPackage(pkg);
@@ -133,23 +179,22 @@ export default function DashboardHome() {
     try {
       await deleteDoc(doc(db, 'packages', id));
       setDeleteId(null);
-      await fetchPackages();
+      pageCursors.current.clear();
+      setCurrentPage(1);
+      await Promise.all([fetchPage(1), fetchStats()]);
     } catch (error) {
       console.error('Error deleting package:', error);
     }
   };
 
-  const totalPages = Math.ceil(filteredPackages.length / ITEMS_PER_PAGE);
-  const paginatedPackages = filteredPackages.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
   const clearFilters = () => {
     setSearchTerm('');
     setFromDate('');
     setToDate('');
+    setActiveStatus(null);
   };
+
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-6">
@@ -171,29 +216,21 @@ export default function DashboardHome() {
         </button>
       </div>
 
+      {/* Delete Confirmation Modal */}
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
           <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-lg">
-
             <div className="flex items-center gap-3 mb-4">
               <AlertCircle className="w-6 h-6 text-red-500" />
-              <h3 className="text-lg font-bold text-gray-900">
-                Delete Package
-              </h3>
+              <h3 className="text-lg font-bold text-gray-900">Delete Package</h3>
             </div>
-
             <p className="text-gray-700 mb-6">
               This action cannot be undone. Are you sure you want to delete this package?
             </p>
-
             <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteId(null)}
-                className="flex-1 btn-secondary py-2"
-              >
+              <button onClick={() => setDeleteId(null)} className="flex-1 btn-secondary py-2">
                 Cancel
               </button>
-
               <button
                 onClick={() => handleDeletePackage(deleteId)}
                 className="flex-1 btn-primary py-2 bg-red-600 hover:bg-red-700"
@@ -201,7 +238,6 @@ export default function DashboardHome() {
                 Delete
               </button>
             </div>
-
           </div>
         </div>
       )}
@@ -214,6 +250,8 @@ export default function DashboardHome() {
           icon={Clock}
           color="yellow"
           isLoading={isLoading}
+          onClick={() => handleStatusCardClick('in_process')}
+          isActive={activeStatus === 'in_process'}
         />
         <StatsCard
           title="Payment Completed"
@@ -221,6 +259,8 @@ export default function DashboardHome() {
           icon={ShieldCheck}
           color="blue"
           isLoading={isLoading}
+          onClick={() => handleStatusCardClick('payment_completed')}
+          isActive={activeStatus === 'payment_completed'}
         />
         <StatsCard
           title="Operation Completed"
@@ -228,6 +268,8 @@ export default function DashboardHome() {
           icon={CheckCircle}
           color="green"
           isLoading={isLoading}
+          onClick={() => handleStatusCardClick('operation_completed')}
+          isActive={activeStatus === 'operation_completed'}
         />
         <StatsCard
           title="Operation Cancelled"
@@ -235,6 +277,8 @@ export default function DashboardHome() {
           icon={XCircle}
           color="red"
           isLoading={isLoading}
+          onClick={() => handleStatusCardClick('operation_cancelled')}
+          isActive={activeStatus === 'operation_cancelled'}
         />
       </div>
 
@@ -249,16 +293,29 @@ export default function DashboardHome() {
         onClearFilters={clearFilters}
       />
 
-      {/* Results Count */}
+      {/* Results Count + Active Filter Badge */}
       {!isLoading && (
-        <p className="text-sm text-gray-500">
-          Showing {paginatedPackages.length} of {filteredPackages.length} packages
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-gray-500">
+            Showing {packages.length} of {totalCount} packages
+          </p>
+          {activeStatus && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+              {activeStatus.replace(/_/g, ' ')}
+              <button
+                onClick={() => setActiveStatus(null)}
+                className="ml-1 hover:text-red-500 font-bold"
+              >
+                ×
+              </button>
+            </span>
+          )}
+        </div>
       )}
 
       {/* Package List */}
       <PackageList
-        packages={paginatedPackages}
+        packages={packages}
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
@@ -276,7 +333,12 @@ export default function DashboardHome() {
       <AddPackageModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onSuccess={fetchPackages}
+        onSuccess={() => {
+          pageCursors.current.clear();
+          setCurrentPage(1);
+          fetchPage(1);
+          fetchStats();
+        }}
         editingPackage={editingPackage}
         currentUser={user}
       />
@@ -290,7 +352,7 @@ export default function DashboardHome() {
         }}
         package={selectedPackage}
         currentUser={user}
-        onRefresh={fetchPackages}
+        onRefresh={() => fetchPage(currentPage)}
       />
     </div>
   );

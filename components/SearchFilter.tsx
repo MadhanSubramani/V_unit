@@ -68,6 +68,7 @@ export default function SearchFilter({
       <input
         type="date"
         value={fromDate}
+        max={toDate || undefined}
         onChange={(e) => onFromDateChange(e.target.value)}
         className="input-field"
       />
@@ -82,6 +83,7 @@ export default function SearchFilter({
       <input
         type="date"
         value={toDate}
+        min={fromDate || undefined}
         onChange={(e) => onToDateChange(e.target.value)}
         className="input-field"
       />

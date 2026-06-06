@@ -7,6 +7,8 @@ interface StatsCardProps {
   icon: LucideIcon;
   color: 'blue' | 'green' | 'red' | 'yellow';
   isLoading?: boolean;
+  onClick?: () => void;
+  isActive?: boolean;
 }
 
 const colorClasses = {
@@ -14,21 +16,25 @@ const colorClasses = {
     bg: 'bg-blue-50',
     icon: 'bg-blue-100 text-blue-600',
     text: 'text-blue-600',
+    ring: 'ring-2 ring-blue-400',
   },
   green: {
     bg: 'bg-green-50',
     icon: 'bg-green-100 text-green-600',
     text: 'text-green-600',
+    ring: 'ring-2 ring-green-400',
   },
   red: {
     bg: 'bg-red-50',
     icon: 'bg-red-100 text-red-600',
     text: 'text-red-600',
+    ring: 'ring-2 ring-red-400',
   },
   yellow: {
     bg: 'bg-yellow-50',
     icon: 'bg-yellow-100 text-yellow-600',
     text: 'text-yellow-600',
+    ring: 'ring-2 ring-yellow-400',
   },
 };
 
@@ -38,11 +44,19 @@ export default function StatsCard({
   icon: Icon,
   color,
   isLoading,
+  onClick,
+  isActive,
 }: StatsCardProps) {
   const colors = colorClasses[color];
 
   return (
-    <div className={`card p-6 ${colors.bg} border-none`}>
+    <div
+      onClick={onClick}
+      className={`card p-6 ${colors.bg} border-none transition-all
+        ${onClick ? 'cursor-pointer hover:brightness-95' : ''}
+        ${isActive ? colors.ring : ''}
+      `}
+    >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-600">{title}</p>

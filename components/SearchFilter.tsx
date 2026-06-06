@@ -28,24 +28,35 @@ export default function SearchFilter({
   <div className="card p-5 shadow-sm border border-gray-200">
   <div className="flex flex-col lg:flex-row lg:items-end gap-4">
 
-    {/* Search */}
-    <div className="flex-1">
-      <label className="block text-xs font-semibold text-gray-500 mb-2">
-        Search
-      </label>
+{/* Search */}
+<div className="flex-1">
+  <label className="block text-xs font-semibold text-gray-500 mb-2">
+    Search
+  </label>
 
-     <div className="relative">
-  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
 
-  <input
-    type="text"
-    placeholder="Search packages by name, vendor code..."
-    value={searchTerm}
-    onChange={(e) => onSearchChange(e.target.value)}
-    className="input-field"
-    style={{ paddingLeft: '44px' }}
-  />
-</div>
+        <input
+          type="text"
+          placeholder="Search packages by name, vendor code..."
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="input-field pr-10"
+          style={{ paddingLeft: '44px' }}
+        />
+
+        {searchTerm && (
+          <button
+            type="button"
+            onClick={() => onSearchChange('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+            title="Clear search"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
     </div>
 
     {/* From Date */}
@@ -76,16 +87,6 @@ export default function SearchFilter({
       />
     </div>
 
-    {/* Clear Button */}
-    {hasFilters && (
-      <button
-        onClick={onClearFilters}
-        className="h-[46px] px-4 bg-red-50 text-red-600 rounded-lg border border-red-200 hover:bg-red-100 flex items-center gap-2"
-      >
-        <X className="w-4 h-4" />
-        Clear
-      </button>
-    )}
   </div>
 </div>
   );

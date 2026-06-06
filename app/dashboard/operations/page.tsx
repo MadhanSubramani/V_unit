@@ -180,18 +180,18 @@ export default function OperationsPage() {
               Manage operation entries with Billing, Payment, Cargo Segregation, Clearance, Dispatch Status, and Package types.
             </p>
           </div>
-          <button
-            onClick={() => {
-              resetForm();
-              if (availableCreateTypes.length > 0) {
+          {availableCreateTypes.length > 0 && (
+            <button
+              onClick={() => {
+                resetForm();
                 setOperationType(availableCreateTypes[0]);
-              }
-              setShowAddOperation(true);
-            }}
-            className="btn-primary flex items-center justify-center px-5 py-3"
-          >
-            Add Operation
-          </button>
+                setShowAddOperation(true);
+              }}
+              className="btn-primary flex items-center justify-center px-5 py-3"
+            >
+              Add Operation
+            </button>
+          )}
         </div>
 
         <div className="card overflow-hidden">

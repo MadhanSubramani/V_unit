@@ -21,7 +21,7 @@ import AddPackageModal from '@/components/AddPackageModal';
 import PackageTimelineDrawer from '@/components/PackageTimelineDrawer';
 import { Clock, CheckCircle, XCircle, ShieldCheck, Plus } from 'lucide-react';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 5;
 
 export default function DashboardHome() {
   const { user } = useAuth();

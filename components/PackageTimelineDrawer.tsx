@@ -16,6 +16,10 @@ import {
   formatDateForInput,
   normalizePackageFromFirestore,
 } from '@/lib/firestore-dates';
+import {
+  formatDisplayAmount,
+  getPackageTotalAmount,
+} from '@/lib/package-status';
 import { Package, Operation, AuthUser, ETDData, ETAData } from '@/types';
 import {
   X,
@@ -858,6 +862,30 @@ function StagePackageCreated({
               disabled
               className="input-field bg-gray-100"
               placeholder="CBM"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Amount Per CBM
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={formatDisplayAmount(pkg.amountPerCbm)}
+              className="input-field bg-gray-100 text-gray-700 cursor-not-allowed"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Total Amount
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={formatDisplayAmount(getPackageTotalAmount(pkg))}
+              className="input-field bg-gray-100 text-gray-700 cursor-not-allowed"
             />
           </div>
         </div>

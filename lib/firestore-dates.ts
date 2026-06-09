@@ -159,3 +159,26 @@ export function normalizePackageFromFirestore(
     timeline: normalizeTimeline(data.timeline as Record<string, unknown> | undefined),
   };
 }
+
+export function formatDisplayAmount(value?: number): string {
+  if (value == null || !Number.isFinite(value)) return '-';
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+export function getPackageTotalAmount(pkg: Package): number | undefined {
+  if (pkg.totalAmount != null && Number.isFinite(pkg.totalAmount)) {
+    return pkg.totalAmount;
+  }
+  if (
+    pkg.amountPerCbm != null &&
+    pkg.cbm != null &&
+    Number.isFinite(pkg.amountPerCbm) &&
+    Number.isFinite(pkg.cbm)
+  ) {
+    return pkg.amountPerCbm * pkg.cbm;
+  }
+  return undefined;
+}

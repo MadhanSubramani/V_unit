@@ -2,6 +2,7 @@
 'use client';
 
 import { Package } from '@/types';
+import { getPackageStatusColor, getPackageStatusLabel } from '@/lib/package-status';
 import {
   Package as PackageIcon,
   Edit3,
@@ -21,20 +22,6 @@ interface PackageListProps {
   totalPages?: number;
   onPageChange?: (page: number) => void;
 }
-
-const statusColors = {
-  in_process: 'text-amber-600',
-  payment_completed: 'text-blue-600',
-  operation_completed: 'text-green-600',
-  operation_cancelled: 'text-red-600',
-};
-
-const statusLabels = {
-  in_process: 'In Process',
-  payment_completed: 'Payment Completed',
-  operation_completed: 'Operation Completed',
-  operation_cancelled: 'Operation Cancelled',
-};
 
 export default function PackageList({
   packages,
@@ -183,16 +170,8 @@ export default function PackageList({
                 </td>
 
                 <td className="px-4 py-4 text-center">
-                  <span
-                    className={`text-sm font-semibold ${
-                      statusColors[pkg.status as keyof typeof statusColors]
-                    }`}
-                  >
-                    {
-                      statusLabels[
-                        pkg.status as keyof typeof statusLabels
-                      ]
-                    }
+                  <span className={`text-sm font-semibold ${getPackageStatusColor(pkg)}`}>
+                    {getPackageStatusLabel(pkg)}
                   </span>
                 </td>
 
@@ -245,12 +224,8 @@ export default function PackageList({
                 </p>
               </div>
 
-              <span
-                className={`text-xs font-semibold ${
-                  statusColors[pkg.status as keyof typeof statusColors]
-                }`}
-              >
-                {statusLabels[pkg.status as keyof typeof statusLabels]}
+              <span className={`text-xs font-semibold ${getPackageStatusColor(pkg)}`}>
+                {getPackageStatusLabel(pkg)}
               </span>
             </div>
 

@@ -20,6 +20,7 @@ import {
 import { db } from '@/lib/firebase';
 import { Package } from '@/types';
 import { normalizePackageFromFirestore } from '@/lib/firestore-dates';
+import { isPaymentPending } from '@/lib/package-status';
 import { useAuth } from '@/context/AuthContext';
 import StatsCard from '@/components/StatsCard';
 import SearchFilter, { SearchType } from '@/components/SearchFilter';
@@ -32,10 +33,17 @@ const ITEMS_PER_PAGE = 5;
 
 type StatusFilter =
   | 'in_process'
-  | 'payment_completed'
+  | 'payment_pending'
   | 'operation_completed'
   | 'operation_cancelled'
   | null;
+
+const STATUS_FILTER_LABELS: Record<Exclude<StatusFilter, null>, string> = {
+  in_process: 'In Process',
+  payment_pending: 'Payment Pending',
+  operation_completed: 'Operation Completed',
+  operation_cancelled: 'Operation Cancelled',
+};
 
 export default function DashboardHome() {
   const { user } = useAuth();
@@ -57,7 +65,7 @@ export default function DashboardHome() {
 
   const [stats, setStats] = useState({
     inProcess: 0,
-    paymentCompleted: 0,
+    paymentPending: 0,
     operationCompleted: 0,
     operationCancelled: 0,
   });
@@ -68,20 +76,28 @@ export default function DashboardHome() {
   const [toDate, setToDate] = useState('');
 
   const isSearching = searchTerm.trim().length > 0;
+  const usesClientSideStatusFilter = activeStatus === 'payment_pending';
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const fetchStats = useCallback(async () => {
     const ref = collection(db, 'packages');
-    const [inProcess, paymentCompleted, operationCompleted, operationCancelled] =
+    const [inProcess, operationCompleted, operationCancelled, billingDoneSnap] =
       await Promise.all([
         getCountFromServer(query(ref, where('status', '==', 'in_process'))),
-        getCountFromServer(query(ref, where('status', '==', 'payment_completed'))),
         getCountFromServer(query(ref, where('status', '==', 'operation_completed'))),
         getCountFromServer(query(ref, where('status', '==', 'operation_cancelled'))),
+        getDocs(query(ref, where('timeline.billing.completed', '==', true))),
       ]);
+
+    const paymentPendingCount = billingDoneSnap.docs
+      .map((d) =>
+        normalizePackageFromFirestore(d.id, d.data() as Record<string, unknown>)
+      )
+      .filter(isPaymentPending).length;
+
     setStats({
       inProcess: inProcess.data().count,
-      paymentCompleted: paymentCompleted.data().count,
+      paymentPending: paymentPendingCount,
       operationCompleted: operationCompleted.data().count,
       operationCancelled: operationCancelled.data().count,
     });
@@ -91,7 +107,9 @@ export default function DashboardHome() {
   const buildServerConstraints = useCallback(() => {
     const constraints: Parameters<typeof query>[1][] = [];
 
-    if (activeStatus) {
+    // Payment pending is filtered client-side (timeline.payment.status) to avoid
+    // needing a composite Firestore index with orderBy('createdAt').
+    if (activeStatus && activeStatus !== 'payment_pending') {
       constraints.push(where('status', '==', activeStatus));
     }
 
@@ -115,7 +133,7 @@ export default function DashboardHome() {
     return constraints;
   }, [activeStatus, fromDate, toDate, isSearching]);
 
-  // ── Client-side search filter (case-insensitive, applied after fetch) ──────
+  // ── Client-side filters (payment pending + search) ─────────────────────────
   const applySearchFilter = useCallback(
     (items: Package[]): Package[] => {
       if (!isSearching) return items;
@@ -126,6 +144,17 @@ export default function DashboardHome() {
       });
     },
     [isSearching, searchTerm, searchType]
+  );
+
+  const applyClientFilters = useCallback(
+    (items: Package[]): Package[] => {
+      let filtered = items;
+      if (activeStatus === 'payment_pending') {
+        filtered = filtered.filter(isPaymentPending);
+      }
+      return applySearchFilter(filtered);
+    },
+    [activeStatus, applySearchFilter]
   );
 
   // ── SEARCH MODE: fetch all (status-filtered) docs, filter client-side ──────
@@ -141,8 +170,7 @@ export default function DashboardHome() {
         normalizePackageFromFirestore(d.id, d.data() as Record<string, unknown>)
       );
 
-      // Apply client-side search filter
-      const filtered = applySearchFilter(all);
+      const filtered = applyClientFilters(all);
 
       // Paginate in memory
       const total = filtered.length;
@@ -154,7 +182,7 @@ export default function DashboardHome() {
     } finally {
       setIsLoading(false);
     }
-  }, [buildServerConstraints, applySearchFilter, currentPage]);
+  }, [buildServerConstraints, applyClientFilters, currentPage]);
 
   // ── NORMAL MODE: server-side pagination with cursors ──────────────────────
   const fetchPage = useCallback(
@@ -199,18 +227,26 @@ export default function DashboardHome() {
     setCurrentPage(1);
   }, [searchTerm, searchType, fromDate, toDate, activeStatus]);
 
-  // ── Route to search or paginated fetch ───────────────────────────────────
+  // ── Route to in-memory or server-side pagination ─────────────────────────
   useEffect(() => {
-    if (isSearching) {
+    if (isSearching || usesClientSideStatusFilter) {
       fetchSearch();
     } else {
       fetchPage(currentPage);
     }
-  }, [currentPage, isSearching, fetchSearch, fetchPage]);
+  }, [currentPage, isSearching, usesClientSideStatusFilter, fetchSearch, fetchPage]);
 
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  const refreshPackages = useCallback(() => {
+    if (isSearching || activeStatus === 'payment_pending') {
+      fetchSearch();
+    } else {
+      fetchPage(currentPage);
+    }
+  }, [isSearching, activeStatus, fetchSearch, fetchPage, currentPage]);
 
   const handleStatusCardClick = (status: StatusFilter) => {
     setActiveStatus((prev) => (prev === status ? null : status));
@@ -227,7 +263,11 @@ export default function DashboardHome() {
       setDeleteId(null);
       pageCursors.current.clear();
       setCurrentPage(1);
-      await Promise.all([fetchPage(1), fetchStats()]);
+      const reload =
+        isSearching || activeStatus === 'payment_pending'
+          ? fetchSearch()
+          : fetchPage(1);
+      await Promise.all([reload, fetchStats()]);
     } catch (error) {
       console.error('Error deleting package:', error);
     }
@@ -300,13 +340,13 @@ export default function DashboardHome() {
           isActive={activeStatus === 'in_process'}
         />
         <StatsCard
-          title="Payment Completed"
-          count={stats.paymentCompleted}
+          title="Payment Pending"
+          count={stats.paymentPending}
           icon={ShieldCheck}
           color="blue"
           isLoading={isLoading}
-          onClick={() => handleStatusCardClick('payment_completed')}
-          isActive={activeStatus === 'payment_completed'}
+          onClick={() => handleStatusCardClick('payment_pending')}
+          isActive={activeStatus === 'payment_pending'}
         />
         <StatsCard
           title="Operation Completed"
@@ -349,7 +389,7 @@ export default function DashboardHome() {
           </p>
           {activeStatus && (
             <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-              {activeStatus.replace(/_/g, ' ')}
+              {STATUS_FILTER_LABELS[activeStatus]}
               <button
                 onClick={() => setActiveStatus(null)}
                 className="ml-1 hover:text-red-500 font-bold"
@@ -384,7 +424,7 @@ export default function DashboardHome() {
         onSuccess={() => {
           pageCursors.current.clear();
           setCurrentPage(1);
-          fetchPage(1);
+          refreshPackages();
           fetchStats();
         }}
         editingPackage={editingPackage}
@@ -400,7 +440,10 @@ export default function DashboardHome() {
         }}
         package={selectedPackage}
         currentUser={user}
-        onRefresh={() => fetchPage(currentPage)}
+        onRefresh={() => {
+          refreshPackages();
+          fetchStats();
+        }}
       />
     </div>
   );

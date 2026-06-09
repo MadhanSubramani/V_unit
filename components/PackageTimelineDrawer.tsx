@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   doc,
   updateDoc,
   getDocs,
   collection,
-  query,
-  where,
   Timestamp,
   getDoc,
 } from 'firebase/firestore';
@@ -15,12 +13,10 @@ import { db } from '@/lib/firebase';
 import {
   formatDateForInput,
   normalizePackageFromFirestore,
-} from '@/lib/firestore-dates';
-import {
   formatDisplayAmount,
   getPackageTotalAmount,
-} from '@/lib/package-status';
-import { Package, Operation, AuthUser, ETDData, ETAData } from '@/types';
+} from '@/lib/firestore-dates';
+import { Package, Operation, AuthUser, PackageTimeline } from '@/types';
 import {
   X,
   CheckCircle,
@@ -61,6 +57,49 @@ const dateToTimestamp = (date: Date | undefined | null): Timestamp | undefined =
   }
 };
 
+type StageSaveData = { canAdvance?: boolean };
+
+const canAdvanceStage = (stageId: string, data: StageSaveData & Record<string, unknown>): boolean => {
+  if (stageId === 'payment') return true;
+
+  switch (stageId) {
+    case 'packageCreated':
+      return !!(
+        data.name &&
+        data.packageType &&
+        data.packageCount != null &&
+        data.packageCount !== '' &&
+        data.weight != null &&
+        data.weight !== '' &&
+        data.cbm != null &&
+        data.cbm !== ''
+      );
+    case 'etd':
+      return !!(data.estimatedDeparture && data.shippedOnboardDate && data.sailedDate);
+    case 'eta':
+      return !!(data.approxArrivalDate && data.arrivalDate);
+    case 'clearance':
+      return !!(data.status && data.clearanceDate);
+    case 'cargoSegregation':
+      return !!(data.status && data.segregationDate);
+    case 'billing':
+      return !!(data.status && data.billingDate);
+    case 'dispatch':
+      if (data.status === 'Dispatched') {
+        return !!(
+          data.status &&
+          data.dispatchDate &&
+          data.driverName &&
+          data.driverPhone &&
+          data.truckNo
+        );
+      }
+      return !!(data.status && data.dispatchDate);
+    default:
+      return false;
+  }
+};
+
 export default function PackageTimelineDrawer({
   isOpen,
   onClose,
@@ -80,7 +119,10 @@ export default function PackageTimelineDrawer({
 
   const timeline = localPackage?.timeline || {};
 
-  const isStageCompletedWithTimeline = (timelineObj: any, stageIndex: number): boolean => {
+  const isStageCompletedWithTimeline = (
+    timelineObj: PackageTimeline,
+    stageIndex: number
+  ): boolean => {
     const stage = STAGES[stageIndex];
     if (stageIndex === 0) return timelineObj.packageCreated?.completed || false;
     if (stage.id === 'etd') return timelineObj.etd?.completed || timelineObj.etdEta?.completed || false;
@@ -101,15 +143,6 @@ export default function PackageTimelineDrawer({
   const isStageUnlocked = (stageIndex: number): boolean => {
     if (stageIndex === 0) return true;
     return isStageCompleted(stageIndex - 1);
-  };
-
-  const getActiveStageFromTimeline = (): number => {
-    for (let i = 0; i < STAGES.length; i++) {
-      if (!isStageCompleted(i) && isStageUnlocked(i)) {
-        return i;
-      }
-    }
-    return STAGES.length - 1;
   };
 
   const moveToNextStage = () => {
@@ -138,44 +171,6 @@ export default function PackageTimelineDrawer({
     return null;
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      setInitialLoadComplete(false);
-
-      const initializeDrawer = async () => {
-        // Fetch latest package data from Firebase
-        const updatedPkg = await fetchUpdatedPackage();
-        const pkgToUse = updatedPkg || pkg;
-        setLocalPackage(pkgToUse);
-
-        // Fetch operations
-        await fetchOperations();
-
-        // Calculate and set active stage based on updated data
-        if (pkgToUse?.timeline) {
-          const timelineToUse = pkgToUse.timeline || {};
-
-          // Check which stage is the first uncompleted but unlocked one
-          for (let i = 0; i < STAGES.length; i++) {
-            if (!isStageCompletedWithTimeline(timelineToUse, i)) {
-              setActiveStage(i);
-              break;
-            }
-          }
-        } else {
-          setActiveStage(0);
-        }
-
-        setInitialLoadComplete(true);
-      };
-
-      initializeDrawer();
-    } else {
-      setLocalPackage(null);
-      setInitialLoadComplete(false);
-    }
-  }, [isOpen, pkg?.id]);
-
   const fetchOperations = async () => {
     try {
       const opsRef = collection(db, 'operations');
@@ -197,6 +192,48 @@ export default function PackageTimelineDrawer({
     }
   };
 
+  useEffect(() => {
+    if (!isOpen) {
+      setLocalPackage(null);
+      setInitialLoadComplete(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const initializeDrawer = async () => {
+      setInitialLoadComplete(false);
+
+      const updatedPkg = await fetchUpdatedPackage();
+      if (cancelled) return;
+
+      const pkgToUse = updatedPkg || pkg;
+      setLocalPackage(pkgToUse);
+      await fetchOperations();
+      if (cancelled) return;
+
+      if (pkgToUse?.timeline) {
+        const timelineToUse = pkgToUse.timeline;
+        for (let i = 0; i < STAGES.length; i++) {
+          if (!isStageCompletedWithTimeline(timelineToUse, i)) {
+            setActiveStage(i);
+            break;
+          }
+        }
+      } else {
+        setActiveStage(0);
+      }
+
+      setInitialLoadComplete(true);
+    };
+
+    initializeDrawer();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, pkg?.id]);
+
   const getStageIcon = (stageIndex: number) => {
     if (isStageCompleted(stageIndex))
       return <CheckCircle className="w-5 h-5 text-green-500" />;
@@ -208,6 +245,39 @@ export default function PackageTimelineDrawer({
   const handleStageClick = (index: number) => {
     if (isStageUnlocked(index)) {
       setActiveStage(index);
+    }
+  };
+
+  const handleCancelPackage = async () => {
+    if (!cancelReason.trim()) {
+      setErrorMessage('Cancellation reason is required');
+      return;
+    }
+    if (!localPackage?.id) return;
+
+    try {
+      setLoading(true);
+      await updateDoc(doc(db, 'packages', localPackage.id), {
+        status: 'operation_cancelled',
+        cancelReason: cancelReason.trim(),
+        cancelledAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        updatedBy: currentUser?.username,
+      });
+      setSuccessMessage('Package cancelled successfully');
+      setCancelReason('');
+      setShowCancelDialog(false);
+      setTimeout(() => {
+        setSuccessMessage('');
+        onClose();
+      }, 2000);
+      onRefresh();
+      await fetchUpdatedPackage();
+    } catch (err) {
+      console.error('Error cancelling package:', err);
+      setErrorMessage('Failed to cancel package');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -292,6 +362,7 @@ export default function PackageTimelineDrawer({
                   onSave={async (data) => {
                     try {
                       setLoading(true);
+                      const canAdvance = canAdvanceStage('packageCreated', data);
                       await updateDoc(doc(db, 'packages', localPackage.id), {
                         name: data.name,
                         description: data.description,
@@ -303,18 +374,22 @@ export default function PackageTimelineDrawer({
                         vendorName: data.vendorName,
                         vendorCode: data.vendorCode,
                         'timeline.packageCreated': {
-                          completed: true,
+                          completed: canAdvance,
                           savedAt: Timestamp.now(),
                           savedBy: currentUser?.username,
                         },
                         updatedAt: Timestamp.now(),
                         updatedBy: currentUser?.username,
                       });
-                      setSuccessMessage('Package details saved successfully');
+                      setSuccessMessage(
+                        canAdvance
+                          ? 'Package details saved successfully'
+                          : 'Progress saved — fill all required fields to unlock the next stage'
+                      );
                       setTimeout(() => setSuccessMessage(''), 3000);
                       onRefresh();
                       await fetchUpdatedPackage();
-                      moveToNextStage();
+                      if (canAdvance) moveToNextStage();
                     } catch (err) {
                       console.error('Error saving package:', err);
                       setErrorMessage('Failed to save package details');
@@ -332,9 +407,10 @@ export default function PackageTimelineDrawer({
                   onSave={async (data) => {
                     try {
                       setLoading(true);
+                      const canAdvance = canAdvanceStage('etd', data);
                       const etdUpdate: any = {
                         note: data.note || '',
-                        completed: true,
+                        completed: canAdvance,
                         savedAt: Timestamp.now(),
                         savedBy: currentUser?.username,
                       };
@@ -347,11 +423,15 @@ export default function PackageTimelineDrawer({
                         updatedAt: Timestamp.now(),
                         updatedBy: currentUser?.username,
                       });
-                      setSuccessMessage('ETD saved successfully');
+                      setSuccessMessage(
+                        canAdvance
+                          ? 'ETD saved successfully'
+                          : 'Progress saved — fill all required fields to unlock the next stage'
+                      );
                       setTimeout(() => setSuccessMessage(''), 3000);
                       onRefresh();
                       await fetchUpdatedPackage();
-                      moveToNextStage();
+                      if (canAdvance) moveToNextStage();
                     } catch (err) {
                       console.error('Error saving ETD:', err);
                       setErrorMessage('Failed to save ETD');
@@ -369,9 +449,10 @@ export default function PackageTimelineDrawer({
                   onSave={async (data) => {
                     try {
                       setLoading(true);
+                      const canAdvance = canAdvanceStage('eta', data);
                       const etaUpdate: any = {
                         note: data.note || '',
-                        completed: true,
+                        completed: canAdvance,
                         savedAt: Timestamp.now(),
                         savedBy: currentUser?.username,
                       };
@@ -384,11 +465,15 @@ export default function PackageTimelineDrawer({
                         updatedAt: Timestamp.now(),
                         updatedBy: currentUser?.username,
                       });
-                      setSuccessMessage('ETA saved successfully');
+                      setSuccessMessage(
+                        canAdvance
+                          ? 'ETA saved successfully'
+                          : 'Progress saved — fill all required fields to unlock the next stage'
+                      );
                       setTimeout(() => setSuccessMessage(''), 3000);
                       onRefresh();
                       await fetchUpdatedPackage();
-                      moveToNextStage();
+                      if (canAdvance) moveToNextStage();
                     } catch (err) {
                       console.error('Error saving ETA:', err);
                       setErrorMessage('Failed to save ETA');
@@ -407,10 +492,11 @@ export default function PackageTimelineDrawer({
                   onSave={async (data) => {
                     try {
                       setLoading(true);
+                      const canAdvance = canAdvanceStage('clearance', data);
                       const clearanceUpdate: any = {
                         status: data.status || '',
                         note: data.note || '',
-                        completed: true,
+                        completed: canAdvance,
                         savedAt: Timestamp.now(),
                         savedBy: currentUser?.username,
                       };
@@ -421,11 +507,15 @@ export default function PackageTimelineDrawer({
                         updatedAt: Timestamp.now(),
                         updatedBy: currentUser?.username,
                       });
-                      setSuccessMessage('Clearance saved successfully');
+                      setSuccessMessage(
+                        canAdvance
+                          ? 'Clearance saved successfully'
+                          : 'Progress saved — fill all required fields to unlock the next stage'
+                      );
                       setTimeout(() => setSuccessMessage(''), 3000);
                       onRefresh();
                       await fetchUpdatedPackage();
-                      moveToNextStage();
+                      if (canAdvance) moveToNextStage();
                     } catch (err) {
                       console.error('Error saving clearance:', err);
                       setErrorMessage('Failed to save clearance');
@@ -444,10 +534,11 @@ export default function PackageTimelineDrawer({
                   onSave={async (data) => {
                     try {
                       setLoading(true);
+                      const canAdvance = canAdvanceStage('cargoSegregation', data);
                       const cargoUpdate: any = {
                         status: data.status || '',
                         note: data.note || '',
-                        completed: true,
+                        completed: canAdvance,
                         savedAt: Timestamp.now(),
                         savedBy: currentUser?.username,
                       };
@@ -458,11 +549,15 @@ export default function PackageTimelineDrawer({
                         updatedAt: Timestamp.now(),
                         updatedBy: currentUser?.username,
                       });
-                      setSuccessMessage('Cargo Segregation saved successfully');
+                      setSuccessMessage(
+                        canAdvance
+                          ? 'Cargo Segregation saved successfully'
+                          : 'Progress saved — fill all required fields to unlock the next stage'
+                      );
                       setTimeout(() => setSuccessMessage(''), 3000);
                       onRefresh();
                       await fetchUpdatedPackage();
-                      moveToNextStage();
+                      if (canAdvance) moveToNextStage();
                     } catch (err) {
                       console.error('Error saving cargo segregation:', err);
                       setErrorMessage('Failed to save cargo segregation');
@@ -481,10 +576,11 @@ export default function PackageTimelineDrawer({
                   onSave={async (data) => {
                     try {
                       setLoading(true);
+                      const canAdvance = canAdvanceStage('billing', data);
                       const billingUpdate: any = {
                         status: data.status || '',
                         note: data.note || '',
-                        completed: true,
+                        completed: canAdvance,
                         savedAt: Timestamp.now(),
                         savedBy: currentUser?.username,
                       };
@@ -495,11 +591,15 @@ export default function PackageTimelineDrawer({
                         updatedAt: Timestamp.now(),
                         updatedBy: currentUser?.username,
                       });
-                      setSuccessMessage('Billing saved successfully');
+                      setSuccessMessage(
+                        canAdvance
+                          ? 'Billing saved successfully'
+                          : 'Progress saved — fill all required fields to unlock the next stage'
+                      );
                       setTimeout(() => setSuccessMessage(''), 3000);
                       onRefresh();
                       await fetchUpdatedPackage();
-                      moveToNextStage();
+                      if (canAdvance) moveToNextStage();
                     } catch (err) {
                       console.error('Error saving billing:', err);
                       setErrorMessage('Failed to save billing');
@@ -549,19 +649,18 @@ export default function PackageTimelineDrawer({
               ) : activeStage === 7 ? (
                 <StageDispatch
                   key={`dispatch-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
-                  pkg={localPackage}
                   timeline={timeline}
-                  currentUser={currentUser}
                   operations={operationsList}
                   onSave={async (data) => {
                     try {
                       setLoading(true);
+                      const canAdvance = canAdvanceStage('dispatch', data);
                       const dispatchUpdate: any = {
                         status: data.status || '',
                         driverName: data.driverName || '',
                         driverPhone: data.driverPhone || '',
                         note: data.note || '',
-                        completed: true,
+                        completed: canAdvance,
                         savedAt: Timestamp.now(),
                         savedBy: currentUser?.username,
                         truckNo: data.truckNo || '',
@@ -573,68 +672,18 @@ export default function PackageTimelineDrawer({
                         updatedAt: Timestamp.now(),
                         updatedBy: currentUser?.username,
                       });
-                      setSuccessMessage('Dispatch saved successfully');
+                      setSuccessMessage(
+                        canAdvance
+                          ? 'Dispatch saved successfully'
+                          : 'Progress saved — fill all required fields to unlock the next stage'
+                      );
                       setTimeout(() => setSuccessMessage(''), 3000);
                       onRefresh();
                       await fetchUpdatedPackage();
-                      moveToNextStage();
+                      if (canAdvance) moveToNextStage();
                     } catch (err) {
                       console.error('Error saving dispatch:', err);
                       setErrorMessage('Failed to save dispatch');
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  onMarkComplete={async () => {
-                    try {
-                      setLoading(true);
-                      await updateDoc(doc(db, 'packages', localPackage.id), {
-                        status: 'operation_completed',
-                        completedAt: Timestamp.now(),
-                        updatedAt: Timestamp.now(),
-                        updatedBy: currentUser?.username,
-                      });
-                      setSuccessMessage(
-                        'Package marked as completed successfully'
-                      );
-                      setTimeout(() => setSuccessMessage(''), 3000);
-                      onRefresh();
-                      await fetchUpdatedPackage();
-                    } catch (err) {
-                      console.error('Error marking package complete:', err);
-                      setErrorMessage('Failed to mark package as completed');
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  onCancel={async () => {
-                    if (!cancelReason.trim()) {
-                      setErrorMessage('Cancellation reason is required');
-                      return;
-                    }
-                    try {
-                      setLoading(true);
-                      await updateDoc(doc(db, 'packages', localPackage.id), {
-                        status: 'operation_cancelled',
-                        cancelReason: cancelReason.trim(),
-                        cancelledAt: Timestamp.now(),
-                        updatedAt: Timestamp.now(),
-                        updatedBy: currentUser?.username,
-                      });
-                      setSuccessMessage(
-                        'Package cancelled successfully'
-                      );
-                      setCancelReason('');
-                      setShowCancelDialog(false);
-                      setTimeout(() => {
-                        setSuccessMessage('');
-                        onClose();
-                      }, 2000);
-                      onRefresh();
-                      await fetchUpdatedPackage();
-                    } catch (err) {
-                      console.error('Error cancelling package:', err);
-                      setErrorMessage('Failed to cancel package');
                     } finally {
                       setLoading(false);
                     }
@@ -644,6 +693,18 @@ export default function PackageTimelineDrawer({
               ) : null}
             </div>
           </div>
+        </div>
+
+        {/* Footer — cancel available anytime */}
+        <div className="border-t border-gray-200 p-4 bg-gray-50">
+          <button
+            onClick={() => setShowCancelDialog(true)}
+            disabled={loading || localPackage.status === 'operation_cancelled'}
+            className="w-full btn-secondary py-2.5 flex items-center justify-center gap-2 text-red-600 border-red-200 hover:bg-red-50 disabled:opacity-50"
+          >
+            <Trash2 className="w-4 h-4" />
+            Cancel Package
+          </button>
         </div>
 
         {/* Cancel Dialog */}
@@ -668,16 +729,17 @@ export default function PackageTimelineDrawer({
               />
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowCancelDialog(false)}
+                  onClick={() => {
+                    setShowCancelDialog(false);
+                    setCancelReason('');
+                  }}
                   className="flex-1 btn-secondary py-2"
                 >
                   Keep Package
                 </button>
                 <button
-                  onClick={() => {
-                    setShowCancelDialog(false);
-                    // Call the cancel handler
-                  }}
+                  onClick={handleCancelPackage}
+                  disabled={loading}
                   className="flex-1 btn-primary py-2 bg-red-600 hover:bg-red-700"
                 >
                   Confirm Cancel
@@ -910,7 +972,7 @@ function StagePackageCreated({
           ) : (
             <>
               <Check className="w-4 h-4" />
-              Save & Continue
+              Save
             </>
           )}
         </button>
@@ -953,44 +1015,25 @@ function StageETD({
     });
   }, [timeline]);
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.estimatedDeparture) {
-      newErrors.estimatedDeparture = 'Estimated Departure is required';
-    }
-    if (formData.estimatedDeparture && !formData.shippedOnboardDate) {
-      newErrors.shippedOnboardDate = 'Please fill in Estimated Departure first';
-    }
-    if (
-      formData.shippedOnboardDate &&
-      !formData.sailedDate
-    ) {
-      newErrors.sailedDate = 'Please fill in Shipped Onboard Date first';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSave = async () => {
-    if (validateForm()) {
-      await onSave({
-        estimatedDeparture: formData.estimatedDeparture
-          ? new Date(formData.estimatedDeparture)
-          : undefined,
-        shippedOnboardDate: formData.shippedOnboardDate
-          ? new Date(formData.shippedOnboardDate)
-          : undefined,
-        sailedDate: formData.sailedDate
-          ? new Date(formData.sailedDate)
-          : undefined,
-        note: formData.note,
-      });
-    }
+    await onSave({
+      estimatedDeparture: formData.estimatedDeparture
+        ? new Date(formData.estimatedDeparture)
+        : undefined,
+      shippedOnboardDate: formData.shippedOnboardDate
+        ? new Date(formData.shippedOnboardDate)
+        : undefined,
+      sailedDate: formData.sailedDate
+        ? new Date(formData.sailedDate)
+        : undefined,
+      note: formData.note,
+    });
   };
+
+  const isComplete =
+    !!formData.estimatedDeparture &&
+    !!formData.shippedOnboardDate &&
+    !!formData.sailedDate;
 
   return (
     <div className="space-y-6">
@@ -1014,14 +1057,11 @@ function StageETD({
             }
             className="input-field"
           />
-          {errors.estimatedDeparture && (
-            <p className="text-red-500 text-sm mt-1">{errors.estimatedDeparture}</p>
-          )}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Shipped Onboard Date
+            Shipped Onboard Date *
             {!formData.estimatedDeparture && (
               <span className="text-gray-400 ml-1">(fill above first)</span>
             )}
@@ -1038,14 +1078,11 @@ function StageETD({
             className="input-field"
             disabled={!formData.estimatedDeparture}
           />
-          {errors.shippedOnboardDate && (
-            <p className="text-red-500 text-sm mt-1">{errors.shippedOnboardDate}</p>
-          )}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Sailed Date
+            Sailed Date *
             {!formData.shippedOnboardDate && (
               <span className="text-gray-400 ml-1">(fill above first)</span>
             )}
@@ -1059,9 +1096,6 @@ function StageETD({
             className="input-field"
             disabled={!formData.shippedOnboardDate}
           />
-          {errors.sailedDate && (
-            <p className="text-red-500 text-sm mt-1">{errors.sailedDate}</p>
-          )}
         </div>
 
         <div>
@@ -1077,6 +1111,12 @@ function StageETD({
           />
         </div>
 
+        {!isComplete && (
+          <p className="text-xs text-amber-600">
+            Fill all date fields to unlock the next stage. Notes are optional.
+          </p>
+        )}
+
         <button
           onClick={handleSave}
           disabled={isLoading}
@@ -1090,7 +1130,7 @@ function StageETD({
           ) : (
             <>
               <Check className="w-4 h-4" />
-              Save & Continue
+              {isComplete ? 'Save & Continue' : 'Save Progress'}
             </>
           )}
         </button>
@@ -1131,35 +1171,21 @@ function StageETA({
     });
   }, [timeline]);
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.approxArrivalDate) {
-      newErrors.approxArrivalDate = 'Approximate Date of Arrival is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSave = async () => {
-    if (validateForm()) {
-      await onSave({
-        approxArrivalDate: formData.approxArrivalDate
-          ? new Date(formData.approxArrivalDate)
-          : undefined,
-        arrivalDate: formData.arrivalDate
-          ? new Date(formData.arrivalDate)
-          : undefined,
-        status: formData.approxArrivalDate ? 'In Transit' : '',
-        note: formData.note,
-      });
-    }
+    await onSave({
+      approxArrivalDate: formData.approxArrivalDate
+        ? new Date(formData.approxArrivalDate)
+        : undefined,
+      arrivalDate: formData.arrivalDate
+        ? new Date(formData.arrivalDate)
+        : undefined,
+      status: formData.approxArrivalDate ? 'In Transit' : '',
+      note: formData.note,
+    });
   };
 
   const hasApproxDate = !!formData.approxArrivalDate;
+  const isComplete = !!formData.approxArrivalDate && !!formData.arrivalDate;
 
   return (
     <div className="space-y-6">
@@ -1182,9 +1208,6 @@ function StageETA({
             }
             className="input-field"
           />
-          {errors.approxArrivalDate && (
-            <p className="text-red-500 text-sm mt-1">{errors.approxArrivalDate}</p>
-          )}
         </div>
 
         {hasApproxDate && (
@@ -1197,7 +1220,7 @@ function StageETA({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Arrival Date
+            Arrival Date *
             {!hasApproxDate && (
               <span className="text-gray-400 ml-1">(fill App Date of Arrival first)</span>
             )}
@@ -1226,6 +1249,12 @@ function StageETA({
           />
         </div>
 
+        {!isComplete && (
+          <p className="text-xs text-amber-600">
+            Fill all date fields to unlock the next stage. Notes are optional.
+          </p>
+        )}
+
         <button
           onClick={handleSave}
           disabled={isLoading}
@@ -1239,7 +1268,7 @@ function StageETA({
           ) : (
             <>
               <Check className="w-4 h-4" />
-              Save & Continue
+              {isComplete ? 'Save & Continue' : 'Save Progress'}
             </>
           )}
         </button>
@@ -1284,6 +1313,8 @@ function StageClearance({
     });
   }, [timeline.clearance, statusOptions]);
 
+  const isComplete = !!(formData.status && formData.clearanceDate);
+
   const handleSave = () =>
     onSave({
       status: formData.status,
@@ -1297,8 +1328,7 @@ function StageClearance({
     <div className="space-y-6">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">
-          <strong>Stage 3:</strong> Select clearance status and date. Once saved,
-          you'll be able to alert the customer and proceed to Cargo Segregation.
+          <strong>Stage 4:</strong> Select clearance status and date. All fields except notes are required to unlock the next stage.
         </p>
       </div>
 
@@ -1347,6 +1377,12 @@ function StageClearance({
           />
         </div>
 
+        {!isComplete && (
+          <p className="text-xs text-amber-600">
+            Fill status and date to unlock the next stage. Notes are optional.
+          </p>
+        )}
+
         <button
           onClick={handleSave}
           disabled={isLoading}
@@ -1360,7 +1396,7 @@ function StageClearance({
           ) : (
             <>
               <Check className="w-4 h-4" />
-              Save & Continue
+              {isComplete ? 'Save & Continue' : 'Save Progress'}
             </>
           )}
         </button>
@@ -1405,6 +1441,8 @@ function StageCargoSegregation({
     });
   }, [timeline.cargoSegregation, statusOptions]);
 
+  const isComplete = !!(formData.status && formData.segregationDate);
+
   const handleSave = () =>
     onSave({
       status: formData.status,
@@ -1418,7 +1456,7 @@ function StageCargoSegregation({
     <div className="space-y-6">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">
-          <strong>Stage 4:</strong> Record cargo segregation status and date.
+          <strong>Stage 5:</strong> Record cargo segregation status and date. All fields except notes are required to unlock the next stage.
         </p>
       </div>
 
@@ -1467,6 +1505,12 @@ function StageCargoSegregation({
           />
         </div>
 
+        {!isComplete && (
+          <p className="text-xs text-amber-600">
+            Fill status and date to unlock the next stage. Notes are optional.
+          </p>
+        )}
+
         <button
           onClick={handleSave}
           disabled={isLoading}
@@ -1480,7 +1524,7 @@ function StageCargoSegregation({
           ) : (
             <>
               <Check className="w-4 h-4" />
-              Save & Continue
+              {isComplete ? 'Save & Continue' : 'Save Progress'}
             </>
           )}
         </button>
@@ -1525,6 +1569,8 @@ function StageBilling({
     });
   }, [timeline.billing, statusOptions]);
 
+  const isComplete = !!(formData.status && formData.billingDate);
+
   const handleSave = () =>
     onSave({
       status: formData.status,
@@ -1536,7 +1582,7 @@ function StageBilling({
     <div className="space-y-6">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">
-          <strong>Stage 5:</strong> Record billing status and date.
+          <strong>Stage 6:</strong> Record billing status and date. All fields except notes are required to unlock the next stage.
         </p>
       </div>
 
@@ -1585,6 +1631,12 @@ function StageBilling({
           />
         </div>
 
+        {!isComplete && (
+          <p className="text-xs text-amber-600">
+            Fill status and date to unlock the next stage. Notes are optional.
+          </p>
+        )}
+
         <button
           onClick={handleSave}
           disabled={isLoading}
@@ -1598,7 +1650,7 @@ function StageBilling({
           ) : (
             <>
               <Check className="w-4 h-4" />
-              Save & Continue
+              {isComplete ? 'Save & Continue' : 'Save Progress'}
             </>
           )}
         </button>
@@ -1720,6 +1772,9 @@ function StagePayment({
             </>
           )}
         </button>
+        <p className="text-xs text-gray-500">
+          Payment stage can be saved and continued without filling all fields.
+        </p>
       </div>
 
       {timeline.payment?.completed && (
@@ -1730,22 +1785,14 @@ function StagePayment({
 }
 
 function StageDispatch({
-  pkg,
   timeline,
-  currentUser,
   operations,
   onSave,
-  onMarkComplete,
-  onCancel,
   isLoading,
 }: {
-  pkg: Package;
   timeline: any;
-  currentUser: AuthUser | null;
   operations: Operation[];
   onSave: (data: any) => Promise<void>;
-  onMarkComplete: () => Promise<void>;
-  onCancel: () => Promise<void>;
   isLoading: boolean;
 }) {
   const dispatchData = timeline.dispatch || {};
@@ -1773,6 +1820,12 @@ function StageDispatch({
     });
   }, [timeline.dispatch, statusOptions]);
 
+  const isDispatched = formData.status === 'Dispatched';
+  const isComplete =
+    !!formData.status &&
+    !!formData.dispatchDate &&
+    (!isDispatched || !!(formData.driverName && formData.driverPhone && formData.truckNo));
+
   const handleSave = () =>
     onSave({
       status: formData.status,
@@ -1785,17 +1838,12 @@ function StageDispatch({
         : undefined,
     });
 
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
-
-  const isDispatched = formData.status === 'Dispatched';
-
   return (
     <div className="space-y-6">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">
-          <strong>Stage 7 (Final):</strong> Record dispatch details. Driver
-          information is required only when status is "Dispatched".
+          <strong>Stage 8 (Final):</strong> Record dispatch details. Driver
+          information is required when status is &quot;Dispatched&quot;. All fields except notes are required to complete this stage.
         </p>
       </div>
 
@@ -1896,9 +1944,15 @@ function StageDispatch({
           />
         </div>
 
+        {!isComplete && (
+          <p className="text-xs text-amber-600">
+            Fill all required fields to complete this stage. Notes are optional.
+          </p>
+        )}
+
         <button
           onClick={handleSave}
-          disabled={isLoading || (isDispatched && (!formData.driverName || !formData.driverPhone || !formData.truckNo))}
+          disabled={isLoading}
           className="w-full btn-primary py-2.5 flex items-center justify-center gap-2"
         >
           {isLoading ? (
@@ -1909,78 +1963,14 @@ function StageDispatch({
           ) : (
             <>
               <Check className="w-4 h-4" />
-              Save & Continue
+              {isComplete ? 'Save & Continue' : 'Save Progress'}
             </>
           )}
         </button>
       </div>
 
       {timeline.dispatch?.completed && (
-        <>
-          <AlertCustomerButton stage="dispatch" data={timeline.dispatch} />
-
-          {isDispatched && (
-            <div className="border-t pt-4 space-y-3">
-              <p className="text-sm font-medium text-gray-700">Final Actions:</p>
-              <button
-                onClick={onMarkComplete}
-                disabled={isLoading || pkg.status === 'operation_completed'}
-                className="w-full btn-primary py-2.5 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700"
-              >
-                <Check className="w-4 h-4" />
-                Mark Complete
-              </button>
-              <button
-                onClick={() => setShowCancelDialog(true)}
-                disabled={isLoading || pkg.status === 'operation_cancelled'}
-                className="w-full btn-secondary py-2.5 flex items-center justify-center gap-2 text-red-600 border-red-200"
-              >
-                <Trash2 className="w-4 h-4" />
-                Cancel Package
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {showCancelDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-lg">
-            <div className="flex items-center gap-3 mb-4">
-              <AlertCircle className="w-6 h-6 text-red-500" />
-              <h3 className="text-lg font-bold text-gray-900">Cancel Package</h3>
-            </div>
-            <p className="text-gray-700 mb-4">
-              This action cannot be undone. Please provide a reason for cancellation.
-            </p>
-            <textarea
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="Enter cancellation reason..."
-              className="input-field w-full mb-4"
-              rows={3}
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCancelDialog(false)}
-                className="flex-1 btn-secondary py-2"
-              >
-                Keep Package
-              </button>
-              <button
-                onClick={async () => {
-                  if (cancelReason.trim()) {
-                    setShowCancelDialog(false);
-                    await onCancel();
-                  }
-                }}
-                className="flex-1 btn-primary py-2 bg-red-600 hover:bg-red-700"
-              >
-                Confirm Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <AlertCustomerButton stage="dispatch" data={timeline.dispatch} />
       )}
     </div>
   );

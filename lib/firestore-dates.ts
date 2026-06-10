@@ -2,6 +2,7 @@ import { Timestamp } from 'firebase/firestore';
 import {
   Package,
   PackageTimeline,
+  SupportDocument,
   TimelineStage,
   ETDData,
   ETAData,
@@ -136,6 +137,10 @@ export function normalizePackageFromFirestore(
     vendorId: data.vendorId as string | undefined,
     vendorCode: data.vendorCode as string | undefined,
     vendorName: data.vendorName as string | undefined,
+    vendorMobile: data.vendorMobile as string | undefined,
+    supportDocuments: Array.isArray(data.supportDocuments)
+      ? (data.supportDocuments as SupportDocument[])
+      : undefined,
     description: data.description as string | undefined,
     amount: data.amount as number | undefined,
     weight: data.weight as number | undefined,

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import {
   collection,
   getDocs,
@@ -21,8 +23,16 @@ interface User {
 }
 
 export default function UsersPage() {
+  const { user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!authLoading && user?.role !== 'admin') {
+      router.replace('/dashboard');
+    }
+  }, [user, authLoading, router]);
 
   const [showAddUser, setShowAddUser] = useState(false);
   const [saving, setSaving] = useState(false);

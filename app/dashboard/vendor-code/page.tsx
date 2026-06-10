@@ -17,6 +17,7 @@ import { db } from '@/lib/firebase';
 import { Vendor } from '@/types';
 import { Search } from 'lucide-react';
 import { Plus, Pencil, Trash2, X, Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 const initialFormState = {
   name: '',
@@ -30,6 +31,8 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const mobilePattern = /^[0-9]{10,15}$/;
 
 export default function VendorCodePage() {
+  const { user } = useAuth();
+  const canDelete = user?.role === 'admin';
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -318,13 +321,15 @@ export default function VendorCodePage() {
             Edit
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleDelete(vendor.id)}
-            className="flex-1 py-2.5 rounded-xl bg-red-50 text-red-600 font-medium hover:bg-red-100 transition"
-          >
-            Delete
-          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => handleDelete(vendor.id)}
+              className="flex-1 py-2.5 rounded-xl bg-red-50 text-red-600 font-medium hover:bg-red-100 transition"
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
     ))
@@ -444,13 +449,15 @@ export default function VendorCodePage() {
       Edit
     </button>
 
-    <button
-      type="button"
-      onClick={() => handleDelete(vendor.id)}
-      className="rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-600"
-    >
-     Delete
-    </button>
+    {canDelete && (
+      <button
+        type="button"
+        onClick={() => handleDelete(vendor.id)}
+        className="rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-600"
+      >
+        Delete
+      </button>
+    )}
   </div>
 </td>
           </tr>

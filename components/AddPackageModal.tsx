@@ -15,6 +15,10 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { uploadSupportDocuments } from '@/lib/storage-upload';
+import SupportDocumentsPicker, {
+  PendingSupportFile,
+} from '@/components/SupportDocumentsPicker';
 import { X, Loader2 } from 'lucide-react';
 import { Package, AuthUser, Vendor } from '@/types';
 
@@ -51,6 +55,7 @@ export default function AddPackageModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<PendingSupportFile[]>([]);
 
   const computedTotalAmount = (() => {
     const amount = parseFloat(amountPerCbm);
@@ -72,7 +77,16 @@ export default function AddPackageModal({
     setPackageType('');
     setPackageCount('');
     setShowSuggestions(false);
+    setPendingFiles([]);
     setError('');
+  };
+
+  const handleAddFiles = (files: File[]) => {
+    const next = files.map((file) => ({
+      id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
+      file,
+    }));
+    setPendingFiles((prev) => [...prev, ...next]);
   };
 
   const fetchVendors = async () => {
@@ -141,6 +155,7 @@ export default function AddPackageModal({
       setCbm(editingPackage.cbm?.toString() || '');
       setPackageType(editingPackage.packageType || '');
       setPackageCount(editingPackage.packageCount?.toString() || '');
+      setPendingFiles([]);
       setError('');
     } else {
       resetForm();
@@ -173,6 +188,7 @@ export default function AddPackageModal({
         vendorId: selectedVendor.id,
         vendorCode: selectedVendor.id,
         vendorName: selectedVendor.name,
+        vendorMobile: selectedVendor.mobile || undefined,
         vendorDeliveryAddress: selectedVendor.address || undefined,
         vendorBillingAddress: selectedVendor.billingAddress || undefined,
         status: editingPackage ? status : 'in_process',
@@ -189,14 +205,29 @@ export default function AddPackageModal({
         updatedAt: Timestamp.now(),
         updatedBy: currentUser?.username || 'Unknown',
       };
+      let packageId = editingPackage?.id;
+
       if (editingPackage) {
         await updateDoc(doc(db, 'packages', editingPackage.id), payload);
       } else {
-        await addDoc(collection(db, 'packages'), {
+        const docRef = await addDoc(collection(db, 'packages'), {
           ...payload,
           status: 'in_process',
           createdAt: Timestamp.now(),
           createdBy: currentUser?.username || 'Unknown',
+        });
+        packageId = docRef.id;
+      }
+
+      if (packageId && pendingFiles.length > 0) {
+        const uploaded = await uploadSupportDocuments(
+          packageId,
+          pendingFiles.map((item) => item.file)
+        );
+        const existingDocs = editingPackage?.supportDocuments || [];
+        await updateDoc(doc(db, 'packages', packageId), {
+          supportDocuments: [...existingDocs, ...uploaded],
+          updatedAt: Timestamp.now(),
         });
       }
 
@@ -482,6 +513,16 @@ export default function AddPackageModal({
             />
           </div>
 
+          <SupportDocumentsPicker
+            pendingFiles={pendingFiles}
+            existingDocuments={editingPackage?.supportDocuments}
+            onAddFiles={handleAddFiles}
+            onRemovePending={(id) =>
+              setPendingFiles((prev) => prev.filter((item) => item.id !== id))
+            }
+            disabled={isLoading}
+          />
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
               {error}
@@ -504,7 +545,7 @@ export default function AddPackageModal({
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
+                  {pendingFiles.length > 0 ? 'Saving & uploading...' : 'Saving...'}
                 </>
               ) : editingPackage ? (
                 'Update Package'

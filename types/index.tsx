@@ -61,6 +61,13 @@ export interface DispatchData extends TimelineStage {
   note?: string;
 }
 
+export interface SupportDocument {
+  name: string;
+  url: string;
+  type: 'image' | 'pdf' | 'excel';
+  uploadedAt?: string;
+}
+
 export interface PackageTimeline {
   packageCreated?: TimelineStage;
   etd?: ETDData;
@@ -90,6 +97,8 @@ export interface User {
     vendorId?: string;
     vendorCode?: string;
     vendorName?: string;
+    vendorMobile?: string;
+    supportDocuments?: SupportDocument[];
     createdAt: Date;
     updatedAt: Date;
     description?: string;

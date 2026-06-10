@@ -15,8 +15,11 @@ import {
 import { db } from '@/lib/firebase';
 import { Operation } from '@/types';
 import { AlertCircle } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function OperationsPage() {
+  const { user } = useAuth();
+  const canDelete = user?.role === 'admin';
   const [operationType, setOperationType] = useState<'Billing' | 'Payment' | 'Cargo Segregation' | 'Clearance' | 'Dispatch Status' | 'Package'>('Billing');
   const [statusInput, setStatusInput] = useState('');
   const [statuses, setStatuses] = useState<string[]>([]);
@@ -251,12 +254,14 @@ export default function OperationsPage() {
                             >
                               Edit
                             </button>
-                          <button
-                            onClick={() => setDeleteId(operation.id)}
-                            className="rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-600"
-                          >
-                            Delete
-                          </button>
+                          {canDelete && (
+                            <button
+                              onClick={() => setDeleteId(operation.id)}
+                              className="rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-600"
+                            >
+                              Delete
+                            </button>
+                          )}
                           </div>
                         </td>
                       </tr>
@@ -286,12 +291,14 @@ export default function OperationsPage() {
                           Edit
                         </button>
 
-                      <button
-                        onClick={() => setDeleteId(operation.id)}
-                        className="rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-600"
-                      >
-                        Delete
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => setDeleteId(operation.id)}
+                          className="rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-600"
+                        >
+                          Delete
+                        </button>
+                      )}
                       </div>
                     </div>
 

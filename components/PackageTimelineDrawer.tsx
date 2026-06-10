@@ -17,6 +17,8 @@ import {
   getPackageTotalAmount,
 } from '@/lib/firestore-dates';
 import { Package, Operation, AuthUser, PackageTimeline } from '@/types';
+import SupportDocumentsList from '@/components/SupportDocumentsList';
+import { buildWhatsAppAlertMessage } from '@/lib/whatsapp-alert';
 import {
   X,
   CheckCircle,
@@ -402,6 +404,7 @@ export default function PackageTimelineDrawer({
               ) : activeStage === 1 ? (
                 <StageETD
                   key={`etd-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
+                  pkg={localPackage}
                   timeline={timeline}
                   currentUser={currentUser}
                   onSave={async (data) => {
@@ -444,6 +447,7 @@ export default function PackageTimelineDrawer({
               ) : activeStage === 2 ? (
                 <StageETA
                   key={`eta-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
+                  pkg={localPackage}
                   timeline={timeline}
                   currentUser={currentUser}
                   onSave={async (data) => {
@@ -486,6 +490,7 @@ export default function PackageTimelineDrawer({
               ) : activeStage === 3 ? (
                 <StageClearance
                   key={`clearance-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
+                  pkg={localPackage}
                   timeline={timeline}
                   currentUser={currentUser}
                   operations={operationsList}
@@ -528,6 +533,7 @@ export default function PackageTimelineDrawer({
               ) : activeStage === 4 ? (
                 <StageCargoSegregation
                   key={`cargo-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
+                  pkg={localPackage}
                   timeline={timeline}
                   currentUser={currentUser}
                   operations={operationsList}
@@ -570,6 +576,7 @@ export default function PackageTimelineDrawer({
               ) : activeStage === 5 ? (
                 <StageBilling
                   key={`billing-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
+                  pkg={localPackage}
                   timeline={timeline}
                   currentUser={currentUser}
                   operations={operationsList}
@@ -612,6 +619,7 @@ export default function PackageTimelineDrawer({
               ) : activeStage === 6 ? (
                 <StagePayment
                   key={`payment-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
+                  pkg={localPackage}
                   timeline={timeline}
                   currentUser={currentUser}
                   operations={operationsList}
@@ -649,6 +657,7 @@ export default function PackageTimelineDrawer({
               ) : activeStage === 7 ? (
                 <StageDispatch
                   key={`dispatch-${localPackage.id}-${localPackage.updatedAt.getTime()}`}
+                  pkg={localPackage}
                   timeline={timeline}
                   operations={operationsList}
                   onSave={async (data) => {
@@ -959,6 +968,8 @@ function StagePackageCreated({
           </p>
         </div>
 
+        <SupportDocumentsList documents={pkg.supportDocuments} />
+
         <button
           onClick={() => onSave(formData)}
           disabled={isLoading}
@@ -979,18 +990,24 @@ function StagePackageCreated({
       </div>
 
       {timeline.packageCreated?.completed && (
-        <AlertCustomerButton stage="packageCreated" data={timeline.packageCreated} />
+        <AlertCustomerButton
+          pkg={pkg}
+          stageKey="packageCreated"
+          stageData={timeline.packageCreated}
+        />
       )}
     </div>
   );
 }
 
 function StageETD({
+  pkg,
   timeline,
   currentUser,
   onSave,
   isLoading,
 }: {
+  pkg: Package;
   timeline: any;
   currentUser: AuthUser | null;
   onSave: (data: any) => Promise<void>;
@@ -1137,18 +1154,24 @@ function StageETD({
       </div>
 
       {(timeline.etd?.completed || timeline.etdEta?.completed) && (
-        <AlertCustomerButton stage="etd" data={timeline.etd || timeline.etdEta} />
+        <AlertCustomerButton
+          pkg={pkg}
+          stageKey="etd"
+          stageData={timeline.etd || timeline.etdEta}
+        />
       )}
     </div>
   );
 }
 
 function StageETA({
+  pkg,
   timeline,
   currentUser,
   onSave,
   isLoading,
 }: {
+  pkg: Package;
   timeline: any;
   currentUser: AuthUser | null;
   onSave: (data: any) => Promise<void>;
@@ -1275,19 +1298,25 @@ function StageETA({
       </div>
 
       {(timeline.eta?.completed || timeline.etdEta?.completed) && (
-        <AlertCustomerButton stage="eta" data={timeline.eta || timeline.etdEta} />
+        <AlertCustomerButton
+          pkg={pkg}
+          stageKey="eta"
+          stageData={timeline.eta || timeline.etdEta}
+        />
       )}
     </div>
   );
 }
 
 function StageClearance({
+  pkg,
   timeline,
   currentUser,
   operations,
   onSave,
   isLoading,
 }: {
+  pkg: Package;
   timeline: any;
   currentUser: AuthUser | null;
   operations: Operation[];
@@ -1403,19 +1432,25 @@ function StageClearance({
       </div>
 
       {timeline.clearance?.completed && (
-        <AlertCustomerButton stage="clearance" data={timeline.clearance} />
+        <AlertCustomerButton
+          pkg={pkg}
+          stageKey="clearance"
+          stageData={timeline.clearance}
+        />
       )}
     </div>
   );
 }
 
 function StageCargoSegregation({
+  pkg,
   timeline,
   currentUser,
   operations,
   onSave,
   isLoading,
 }: {
+  pkg: Package;
   timeline: any;
   currentUser: AuthUser | null;
   operations: Operation[];
@@ -1531,19 +1566,25 @@ function StageCargoSegregation({
       </div>
 
       {timeline.cargoSegregation?.completed && (
-        <AlertCustomerButton stage="cargoSegregation" data={timeline.cargoSegregation} />
+        <AlertCustomerButton
+          pkg={pkg}
+          stageKey="cargoSegregation"
+          stageData={timeline.cargoSegregation}
+        />
       )}
     </div>
   );
 }
 
 function StageBilling({
+  pkg,
   timeline,
   currentUser,
   operations,
   onSave,
   isLoading,
 }: {
+  pkg: Package;
   timeline: any;
   currentUser: AuthUser | null;
   operations: Operation[];
@@ -1657,19 +1698,25 @@ function StageBilling({
       </div>
 
       {timeline.billing?.completed && (
-        <AlertCustomerButton stage="billing" data={timeline.billing} />
+        <AlertCustomerButton
+          pkg={pkg}
+          stageKey="billing"
+          stageData={timeline.billing}
+        />
       )}
     </div>
   );
 }
 
 function StagePayment({
+  pkg,
   timeline,
   currentUser,
   operations,
   onSave,
   isLoading,
 }: {
+  pkg: Package;
   timeline: any;
   currentUser: AuthUser | null;
   operations: Operation[];
@@ -1778,18 +1825,24 @@ function StagePayment({
       </div>
 
       {timeline.payment?.completed && (
-        <AlertCustomerButton stage="payment" data={timeline.payment} />
+        <AlertCustomerButton
+          pkg={pkg}
+          stageKey="payment"
+          stageData={timeline.payment}
+        />
       )}
     </div>
   );
 }
 
 function StageDispatch({
+  pkg,
   timeline,
   operations,
   onSave,
   isLoading,
 }: {
+  pkg: Package;
   timeline: any;
   operations: Operation[];
   onSave: (data: any) => Promise<void>;
@@ -1970,23 +2023,31 @@ function StageDispatch({
       </div>
 
       {timeline.dispatch?.completed && (
-        <AlertCustomerButton stage="dispatch" data={timeline.dispatch} />
+        <AlertCustomerButton
+          pkg={pkg}
+          stageKey="dispatch"
+          stageData={timeline.dispatch}
+        />
       )}
     </div>
   );
 }
 
 function AlertCustomerButton({
-  stage,
-  data,
+  pkg,
+  stageKey,
+  stageData,
 }: {
-  stage: string;
-  data: any;
+  pkg: Package;
+  stageKey: string;
+  stageData: Record<string, unknown>;
 }) {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const handleAlert = () => {
-    console.log(`Alerting customer for stage: ${stage}`, data);
+    const message = buildWhatsAppAlertMessage(pkg, stageKey, stageData);
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     setShowConfirm(false);
   };
 
@@ -1997,17 +2058,18 @@ function AlertCustomerButton({
         className="w-full btn-secondary py-2.5 flex items-center justify-center gap-2 border-blue-200"
       >
         <Bell className="w-4 h-4 text-blue-600" />
-        Alert Customer
+        Alert Customer via WhatsApp
       </button>
 
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-lg">
             <h3 className="text-lg font-bold text-gray-900 mb-2">
-              Send Update to Customer?
+              Send WhatsApp Update?
             </h3>
-            <p className="text-gray-600 mb-4">
-              This will send a notification to the customer about the {stage} stage.
+            <p className="text-gray-600 mb-4 text-sm">
+              This opens WhatsApp so you can choose a contact. The message will include
+              package details, the current stage status, and the stage update date.
             </p>
             <div className="flex gap-3">
               <button
@@ -2018,9 +2080,9 @@ function AlertCustomerButton({
               </button>
               <button
                 onClick={handleAlert}
-                className="flex-1 btn-primary py-2"
+                className="flex-1 btn-primary py-2 bg-green-600 hover:bg-green-700"
               >
-                Send Update
+                Open WhatsApp
               </button>
             </div>
           </div>

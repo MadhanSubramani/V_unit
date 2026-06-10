@@ -72,7 +72,7 @@ export default function DashboardLayout({
                   <Package className="w-5 h-5 text-white" />
                 </div>
                 <span className="font-bold text-lg text-gray-900 hidden sm:block">
-                  Vunit
+                  shoppersecom
                 </span>
               </div>
             </div>
@@ -80,8 +80,7 @@ export default function DashboardLayout({
             {/* Nav Links */}
             <div className="hidden md:flex items-center space-x-1">
               {navItems.map((item) => {
-                // Only show non-Home items if user is admin
-                if (item.name !== 'Home' && user?.role !== 'admin') {
+                if (item.name === 'Users' && user?.role !== 'admin') {
                   return null;
                 }
                 const isActive = pathname === item.href;
@@ -145,8 +144,7 @@ export default function DashboardLayout({
         <div className="md:hidden border-t border-gray-100">
           <div className="flex justify-around py-2">
             {navItems.map((item) => {
-              // Only show non-Home items if user is admin
-              if (item.name !== 'Home' && user?.role !== 'admin') {
+              if (item.name === 'Users' && user?.role !== 'admin') {
                 return null;
               }
               const isActive = pathname === item.href;

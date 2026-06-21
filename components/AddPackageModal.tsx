@@ -248,11 +248,16 @@ export default function AddPackageModal({
       };
       let packageId = editingPackage?.id;
 
+      // Remove undefined values because Firestore doesn't accept `undefined` fields
+      const cleanedPayload = Object.fromEntries(
+        Object.entries(payload).filter(([, v]) => v !== undefined)
+      );
+
       if (editingPackage) {
-        await updateDoc(doc(db, 'packages', editingPackage.id), payload);
+        await updateDoc(doc(db, 'packages', editingPackage.id), cleanedPayload);
       } else {
         const docRef = await addDoc(collection(db, 'packages'), {
-          ...payload,
+          ...cleanedPayload,
           status: 'in_process',
           createdAt: Timestamp.now(),
           createdBy: currentUser?.username || 'Unknown',

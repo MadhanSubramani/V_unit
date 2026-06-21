@@ -69,7 +69,7 @@ export default function PackageList({
     <>
       {/* ================= DESKTOP TABLE (UNCHANGED) ================= */}
       <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-        <table className="w-full table-fixed">
+        <table className="min-w-[1600px] table-auto">
           <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
             <tr>
               <th className="w-[12%] px-4 py-4 text-left text-xs font-bold uppercase text-gray-600">
@@ -106,6 +106,14 @@ export default function PackageList({
 
               <th className="w-[6%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
                 CBM
+              </th>
+
+              <th className="w-[10%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
+                ETD Date
+              </th>
+
+              <th className="w-[10%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
+                Total Amount
               </th>
 
               <th className="w-[12%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
@@ -167,6 +175,18 @@ export default function PackageList({
 
                 <td className="px-4 py-4 text-center text-sm">
                   {pkg.cbm ?? '-'}
+                </td>
+
+                <td className="px-4 py-4 text-center text-sm">
+                  {pkg.timeline?.etd?.estimatedDeparture
+                    ? new Date(pkg.timeline?.etd?.estimatedDeparture).toLocaleDateString()
+                    : '-'}
+                </td>
+
+                <td className="px-4 py-4 text-center text-sm font-medium">
+                  {pkg.totalAmount != null
+                    ? `₹${Number(pkg.totalAmount).toLocaleString()}`
+                    : '-'}
                 </td>
 
                 <td className="px-4 py-4 text-center">
@@ -260,6 +280,20 @@ export default function PackageList({
                 {pkg.cbm ?? '-'}
               </p>
             </div>
+
+            <p>
+              <span className="text-gray-500">ETD:</span>{' '}
+              {pkg.timeline?.etd?.estimatedDeparture
+                ? new Date(pkg.timeline?.etd?.estimatedDeparture).toLocaleDateString()
+                : '-'}
+            </p>
+
+            <p>
+              <span className="text-gray-500">Amount:</span>{' '}
+              {pkg.totalAmount != null
+                ? `₹${Number(pkg.totalAmount).toLocaleString()}`
+                : '-'}
+            </p>
 
             <div className="mt-3 flex items-center justify-end gap-2">
               <button

@@ -109,7 +109,7 @@ export default function PackageList({
               </th>
 
               <th className="w-[10%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
-                ETD Date
+                ETA Date
               </th>
 
               <th className="w-[10%] px-4 py-4 text-center text-xs font-bold uppercase text-gray-600">
@@ -178,8 +178,8 @@ export default function PackageList({
                 </td>
 
                 <td className="px-4 py-4 text-center text-sm">
-                  {pkg.timeline?.etd?.estimatedDeparture
-                    ? new Date(pkg.timeline?.etd?.estimatedDeparture).toLocaleDateString()
+                  {pkg.timeline?.eta?.arrivalDate
+                    ? new Date(pkg.timeline?.eta?.arrivalDate).toLocaleDateString()
                     : '-'}
                 </td>
 
@@ -282,9 +282,9 @@ export default function PackageList({
             </div>
 
             <p>
-              <span className="text-gray-500">ETD:</span>{' '}
-              {pkg.timeline?.etd?.estimatedDeparture
-                ? new Date(pkg.timeline?.etd?.estimatedDeparture).toLocaleDateString()
+              <span className="text-gray-500">ETA:</span>{' '}
+              {pkg.timeline?.eta?.arrivalDate
+                ? new Date(pkg.timeline?.eta?.arrivalDate).toLocaleDateString()
                 : '-'}
             </p>
 

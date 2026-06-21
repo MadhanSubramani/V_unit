@@ -66,16 +66,8 @@ const canAdvanceStage = (stageId: string, data: StageSaveData & Record<string, u
 
   switch (stageId) {
     case 'packageCreated':
-      return !!(
-        data.name &&
-        data.packageType &&
-        data.packageCount != null &&
-        data.packageCount !== '' &&
-        data.weight != null &&
-        data.weight !== '' &&
-        data.cbm != null &&
-        data.cbm !== ''
-      );
+      // Allow advancing packageCreated stage with minimal data (name + vendor)
+      return !!(data.name && (data.vendorId || data.vendorName));
     case 'etd':
       // Removed strict validation requiring all ETD dates so stage can advance without them
       return true;

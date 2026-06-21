@@ -70,7 +70,11 @@ export default function LoginPage() {
         {/* Logo Section */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg shadow-blue-200">
-            <Package className="w-8 h-8 text-white" />
+            <img
+              src="/logo.jpeg"
+              alt="Shoppersecom Logo"
+              className="w-full h-full object-cover"
+            />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="text-gray-500 mt-1">Sign in to manage packages</p>
@@ -144,7 +148,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          © 2024 Package Management System
+          © 2026 Shoppersecom Management System
         </p>
       </div>
     </div>

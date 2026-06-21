@@ -1873,7 +1873,7 @@ function StageDispatch({
     });
   }, [timeline.dispatch, statusOptions]);
 
-  const isDispatched = formData.status === 'Dispatched';
+  const isDispatched = formData.status?.toLowerCase() === 'dispatched';
   const isComplete =
     !!formData.status &&
     !!formData.dispatchDate &&

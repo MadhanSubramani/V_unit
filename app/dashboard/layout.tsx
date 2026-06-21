@@ -68,8 +68,12 @@ export default function DashboardLayout({
             {/* Logo */}
             <div className="flex items-center">
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Package className="w-5 h-5 text-white" />
+                <div className="w-7 h-7 rounded-md overflow-hidden flex items-center justify-center">
+                  <img
+                    src="/logo.jpeg"
+                    alt="Shoppersecom Logo"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <span className="font-bold text-lg text-gray-900 hidden sm:block">
                   shoppersecom

@@ -77,7 +77,8 @@ const canAdvanceStage = (stageId: string, data: StageSaveData & Record<string, u
         data.cbm !== ''
       );
     case 'etd':
-      return !!(data.estimatedDeparture && data.shippedOnboardDate && data.sailedDate);
+      // Removed strict validation requiring all ETD dates so stage can advance without them
+      return true;
     case 'eta':
       return !!(data.approxArrivalDate && data.arrivalDate);
     case 'clearance':

@@ -61,9 +61,12 @@ export default function AddPackageModal({
   const [pendingFiles, setPendingFiles] = useState<PendingSupportFile[]>([]);
 
   const computedTotalAmount = (() => {
-    const amount = parseFloat(amountPerCbm);
-    const cbmValue = parseFloat(cbm);
-    return Number.isFinite(amount) && Number.isFinite(cbmValue) ? amount * cbmValue : undefined;
+    const amount = parseFloat(amountPerCbm) || 0;
+    const cbmValue = parseFloat(cbm) || 0;
+    const other = parseFloat(otherExpenses) || 0;
+    const transport = parseFloat(transportExpenses) || 0;
+
+    return amount * cbmValue + other + transport;
   })();
 
   const resetForm = () => {
@@ -214,9 +217,10 @@ export default function AddPackageModal({
       const parsedTransportExpenses = transportExpenses ? parseFloat(transportExpenses) : 0;
       const parsedCbm = cbm ? parseFloat(cbm) : undefined;
       const calculatedTotalAmount =
-        Number.isFinite(parsedAmountPerCbm ?? NaN) && Number.isFinite(parsedCbm ?? NaN)
-          ? parsedAmountPerCbm! * parsedCbm!
-          : undefined;
+        (parsedAmountPerCbm || 0) *
+          (parsedCbm || 0) +
+        parsedOtherExpenses +
+        parsedTransportExpenses;
 
       const payload: Record<string, unknown> = {
         name: name.trim(),
@@ -507,67 +511,65 @@ export default function AddPackageModal({
           </div>
         </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Amount Per CBM
-              </label>
-              <input
-                type="number"
-                value={amountPerCbm}
-                onChange={(e) => setAmountPerCbm(e.target.value)}
-                className="input-field"
-                placeholder="Enter amount per CBM"
-                min="0"
-                step="0.01"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Total Amount
-              </label>
-              <input
-                type="number"
-                value={computedTotalAmount != null ? computedTotalAmount.toFixed(2) : ''}
-                className="input-field bg-gray-50 text-gray-700"
-                placeholder="Calculated total"
-                disabled
-              />
-            </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Amount Per CBM
+            </label>
+            <input
+              type="number"
+              value={amountPerCbm}
+              onChange={(e) => setAmountPerCbm(e.target.value)}
+              className="input-field"
+              placeholder="Enter amount per CBM"
+              min="0"
+              step="0.01"
+            />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Other Expenses
-              </label>
-              <input
-                type="number"
-                value={otherExpenses}
-                onChange={(e) => setOtherExpenses(e.target.value)}
-                className="input-field"
-                placeholder="Enter other expenses"
-                min="0"
-                step="0.01"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Transport Expenses
-              </label>
-              <input
-                type="number"
-                value={transportExpenses}
-                onChange={(e) => setTransportExpenses(e.target.value)}
-                className="input-field"
-                placeholder="Enter transport expenses"
-                min="0"
-                step="0.01"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Other Expenses
+            </label>
+            <input
+              type="number"
+              value={otherExpenses}
+              onChange={(e) => setOtherExpenses(e.target.value)}
+              className="input-field"
+              placeholder="Enter other expenses"
+              min="0"
+              step="0.01"
+            />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Transport Expenses
+            </label>
+            <input
+              type="number"
+              value={transportExpenses}
+              onChange={(e) => setTransportExpenses(e.target.value)}
+              className="input-field"
+              placeholder="Enter transport expenses"
+              min="0"
+              step="0.01"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Total Amount
+            </label>
+            <input
+              type="number"
+              value={computedTotalAmount.toFixed(2)}
+              className="input-field bg-gray-50 text-gray-700"
+              placeholder="Calculated total"
+              disabled
+            />
+          </div>
+        </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">

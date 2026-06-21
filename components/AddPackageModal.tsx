@@ -8,6 +8,7 @@ import {
   addDoc,
   updateDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   orderBy,
@@ -52,6 +53,8 @@ export default function AddPackageModal({
   const [packageTypeSuggestions, setPackageTypeSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [packageCount, setPackageCount] = useState('');
+  const [otherExpenses, setOtherExpenses] = useState('0');
+  const [transportExpenses, setTransportExpenses] = useState('0');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -76,6 +79,8 @@ export default function AddPackageModal({
     setCbm('');
     setPackageType('');
     setPackageCount('');
+    setOtherExpenses('0');
+    setTransportExpenses('0');
     setShowSuggestions(false);
     setPendingFiles([]);
     setError('');
@@ -155,6 +160,34 @@ export default function AddPackageModal({
       setCbm(editingPackage.cbm?.toString() || '');
       setPackageType(editingPackage.packageType || '');
       setPackageCount(editingPackage.packageCount?.toString() || '');
+
+      // Fetch latest package doc to ensure expense fields (and others) are populated
+      (async () => {
+        try {
+          if (editingPackage.id) {
+            const snap = await getDoc(doc(db, 'packages', editingPackage.id));
+            if (snap.exists()) {
+              const data = snap.data() as any;
+              setOtherExpenses(data.otherExpenses != null ? String(data.otherExpenses) : '0');
+              setTransportExpenses(data.transportExpenses != null ? String(data.transportExpenses) : '0');
+              // if needed, override other fields with freshest values
+              setName(data.name || editingPackage.name || '');
+              setDescription(data.description || editingPackage.description || '');
+            } else {
+              setOtherExpenses((editingPackage as any).otherExpenses?.toString() || '0');
+              setTransportExpenses((editingPackage as any).transportExpenses?.toString() || '0');
+            }
+          } else {
+            setOtherExpenses((editingPackage as any).otherExpenses?.toString() || '0');
+            setTransportExpenses((editingPackage as any).transportExpenses?.toString() || '0');
+          }
+        } catch (err) {
+          console.error('Error fetching package for edit:', err);
+          setOtherExpenses((editingPackage as any).otherExpenses?.toString() || '0');
+          setTransportExpenses((editingPackage as any).transportExpenses?.toString() || '0');
+        }
+      })();
+
       setPendingFiles([]);
       setError('');
     } else {
@@ -177,6 +210,8 @@ export default function AddPackageModal({
 
     try {
       const parsedAmountPerCbm = amountPerCbm ? parseFloat(amountPerCbm) : undefined;
+      const parsedOtherExpenses = otherExpenses ? parseFloat(otherExpenses) : 0;
+      const parsedTransportExpenses = transportExpenses ? parseFloat(transportExpenses) : 0;
       const parsedCbm = cbm ? parseFloat(cbm) : undefined;
       const calculatedTotalAmount =
         Number.isFinite(parsedAmountPerCbm ?? NaN) && Number.isFinite(parsedCbm ?? NaN)
@@ -202,6 +237,8 @@ export default function AddPackageModal({
         cbm: parsedCbm,
         packageType: packageType || undefined,
         packageCount: packageCount ? parseInt(packageCount, 10) : undefined,
+        otherExpenses: parsedOtherExpenses,
+        transportExpenses: parsedTransportExpenses,
         updatedAt: Timestamp.now(),
         updatedBy: currentUser?.username || 'Unknown',
       };
@@ -496,6 +533,38 @@ export default function AddPackageModal({
                 className="input-field bg-gray-50 text-gray-700"
                 placeholder="Calculated total"
                 disabled
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Other Expenses
+              </label>
+              <input
+                type="number"
+                value={otherExpenses}
+                onChange={(e) => setOtherExpenses(e.target.value)}
+                className="input-field"
+                placeholder="Enter other expenses"
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Transport Expenses
+              </label>
+              <input
+                type="number"
+                value={transportExpenses}
+                onChange={(e) => setTransportExpenses(e.target.value)}
+                className="input-field"
+                placeholder="Enter transport expenses"
+                min="0"
+                step="0.01"
               />
             </div>
           </div>

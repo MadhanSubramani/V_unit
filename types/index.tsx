@@ -106,6 +106,8 @@ export interface User {
     containerNo?: string;
     amountPerCbm?: number;
     totalAmount?: number;
+    otherExpenses?: number;
+    transportExpenses?: number;
     weightType?: 'KG' | 'TON';
     vendorDeliveryAddress?: string;
     vendorBillingAddress?: string;
